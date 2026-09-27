@@ -1,0 +1,48 @@
+name: Daily Chess Video Auto-Publish
+
+on:
+  schedule:
+    # Runs daily at 12:00 PM UTC (5:30 PM IST)
+    - cron: '0 12 * * *'
+  workflow_dispatch: # Allows manual trigger with 1 click
+
+jobs:
+  generate_and_publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install FFmpeg & Stockfish
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg stockfish fonts-dejavu-core fonts-freefont-ttf
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install python-chess Pillow edge-tts soundfile sounddevice google-api-python-client google-auth-oauthlib google-auth-httplib2
+
+      - name: Run Daily Video & Thumbnail Generator
+        env:
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+        run: |
+          python daily_runner.py
+
+      - name: Archive Video Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: daily-chess-video
+          path: |
+            recordings/*.mp4
+            recordings/*.png
+            recordings/*.srt

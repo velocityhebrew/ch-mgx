@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+
+# Local engines (GitHub Actions installs its own)
+engine/stockfish/*.exe
+engine/stockfish/*.zip
+
+# Media caches
+voiceover/*.mp3
+recordings/*.mp4
+recordings/seg_*.mp4
+recordings/frames/*.png
+
+# OAuth credentials (Keep private!)
+token.json
+client_secrets.json

@@ -1,0 +1,148 @@
+1
+00:00:00,000 --> 00:00:09,224
+[White]: I open with King's Pawn to e4. Establishing early control of the center and opening diagonals for my Queen and Bishop.
+
+2
+00:00:09,224 --> 00:00:18,304
+[Black]: I reply with c5, the Sicilian Defense! An aggressive counter-strike fighting for d4 from the flank.
+
+3
+00:00:18,304 --> 00:00:24,743
+[White]: Knight to f3, developing toward the center and preparing an immediate d4 thrust.
+
+4
+00:00:24,743 --> 00:00:31,783
+[Black]: d6, solidifying the e5 square and keeping your Knight away from advanced outposts.
+
+5
+00:00:31,783 --> 00:00:39,519
+[White]: d4! Striking the center open to unleash my pieces for an aggressive tactical middlegame.
+
+6
+00:00:39,519 --> 00:00:47,807
+[Black]: c takes d4. I trade my flank pawn for your central pawn and open the half-open c-file.
+
+7
+00:00:47,807 --> 00:00:54,583
+[White]: Knight takes d4! Recapturing with a dominant central knight outpost.
+
+8
+00:00:54,583 --> 00:01:01,263
+[Black]: Knight to f6, developing with tempo and targeting your undefended e4 pawn.
+
+9
+00:01:01,263 --> 00:01:07,607
+[White]: Knight to c3, naturally defending e4 while developing my second minor piece.
+
+10
+00:01:07,607 --> 00:01:16,327
+[Black]: a6! The signature Najdorf move. Preventing all Bishop and Knight jumps to b5.
+
+11
+00:01:16,327 --> 00:01:26,559
+[White]: Bishop to e3! The English Attack setup. I am preparing f3, g4, and a full kingside pawn storm!
+
+12
+00:01:26,559 --> 00:01:33,839
+[Black]: e5! Striking your centralized knight immediately and seizing central space.
+
+13
+00:01:33,839 --> 00:01:40,231
+[White]: Knight retreats safely to b3, maintaining harmony and keeping an eye on the queenside.
+
+14
+00:01:40,231 --> 00:01:47,679
+[Black]: Bishop to e6, developing actively and staking my own claim over the critical d5 square.
+
+15
+00:01:47,679 --> 00:01:56,687
+[White]: f3! Cementing the e4 pawn, shutting down Knight to g4, and clearing the runway for g4 and g5.
+
+16
+00:01:56,687 --> 00:02:03,895
+[Black]: h5! A proactive positional brake to slow down your kingside expansion.
+
+17
+00:02:03,895 --> 00:02:10,551
+[White]: Queen to d2! Connecting my rooks and preparing long queenside castling.
+
+18
+00:02:10,551 --> 00:02:17,447
+[Black]: Knight to d7, reinforcing f6 and preparing counterplay along the c-file.
+
+19
+00:02:17,447 --> 00:02:25,159
+[White]: Queenside Castling! King to safety, and my d1 rook is now locked onto the central file.
+
+20
+00:02:25,159 --> 00:02:34,623
+[Black]: Rook to c8! Taking control of the open c-file directly opposite your King. The battle lines are drawn!
+
+21
+00:02:34,623 --> 00:02:42,999
+[White]: King to b1. The essential prophylactic step, stepping off the half-open c-file.
+
+22
+00:02:42,999 --> 00:02:49,087
+[Black]: b5! Rolling my queenside pawns forward to harass your c3 knight.
+
+23
+00:02:49,087 --> 00:02:58,575
+[White]: Knight takes d5!! A thunderous positional sacrifice right in the center! Breaking open Black's defense!
+
+24
+00:02:58,575 --> 00:03:06,575
+[Black]: I must accept the challenge. Bishop takes d5, eliminating the intrusive monster knight.
+
+25
+00:03:06,575 --> 00:03:13,783
+[White]: Pawn takes d5! Opening the e-file and clamping down on Black's central freedom.
+
+26
+00:03:13,783 --> 00:03:21,135
+[Black]: Knight to b6, rerouting toward the c4 outpost and pressuring the advanced d5 pawn.
+
+27
+00:03:21,135 --> 00:03:28,967
+[White]: Queen to a5! Infiltrating the queenside, pinning the knight and targeting a6 and b5!
+
+28
+00:03:28,967 --> 00:03:36,535
+[Black]: Knight captures on d5! Snatching material and defending the queenside perimeter.
+
+29
+00:03:36,535 --> 00:03:44,319
+[White]: Knight takes b6! Liquidating Black's key defender and ripping open the queenside defenses!
+
+30
+00:03:44,319 --> 00:03:52,103
+[Black]: Knight forks the Queen and Rook on e3! Desperate counter-tactics in severe time pressure!
+
+31
+00:03:52,103 --> 00:04:01,975
+[White]: Knight to c6!! Ignoring the fork completely! Setting up an inescapable mating net against the uncastled King!
+
+32
+00:04:01,975 --> 00:04:08,415
+[Black]: Knight takes Rook on d1, but White's tactical attack is moving faster than light!
+
+33
+00:04:08,415 --> 00:04:17,519
+[White]: Bishop takes b5 with check! The final devastating Greek Gift clearance! The King has nowhere to run!
+
+34
+00:04:17,519 --> 00:04:22,903
+[Black]: Pawn takes Bishop... but checkmate is now completely forced.
+
+35
+00:04:22,903 --> 00:04:31,071
+[White]: Knight captures the Queen on d8! Eliminating Black's most powerful piece and cracking the game wide open!
+
+36
+00:04:31,071 --> 00:04:38,207
+[Black]: Rook takes Knight on d8, but my King remains completely exposed under severe time pressure.
+
+37
+00:04:38,207 --> 00:04:47,311
+[White]: Rook takes Knight on d1! Restoring total material dominance. Black has no counter-play left.
+
