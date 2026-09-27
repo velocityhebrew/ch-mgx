@@ -8,7 +8,7 @@ import chess
 
 from board_renderer import ChessBoardRenderer
 from match_narrator import ChessNarrator
-from chess_gameplay import MATCH_MOVES
+from grandmaster_database import get_kasparov_game_moves
 from thumbnail_generator import generate_youtube_thumbnail
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -36,12 +36,13 @@ def format_srt_time(seconds: float) -> str:
     return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
 
 async def generate_all():
+    moves = get_kasparov_game_moves()
     print("=" * 70)
-    print("      CHESS GRANDMASTER SHOWDOWN - DUAL CHARACTER MATCH GENERATOR")
+    print("      CHESS GRANDMASTER SHOWDOWN - 1080P 60FPS BROADCAST SUITE")
     print("=" * 70)
-    print(f"Total Moves to play: {len(MATCH_MOVES)}")
-    print(f"White Character: GM Alexander (Voice: en-US-GuyNeural)")
-    print(f"Black Character: GM Victor (Voice: en-US-ChristopherNeural)")
+    print(f"Total Moves to play: {len(moves)} plies (Full 10-14 Minute Epic)")
+    print(f"White Character: GM Garry (Voice: en-US-GuyNeural)")
+    print(f"Black Character: GM Veselin (Voice: en-US-ChristopherNeural)")
     print(f"Output Video: {OUTPUT_VIDEO}")
     print("=" * 70)
 
@@ -51,35 +52,33 @@ async def generate_all():
     board = chess.Board()
     move_history = []
     
-    # 10-minute Rapid Clocks (600 seconds)
-    white_seconds = 600.0
-    black_seconds = 600.0
+    # 15-minute Rapid Clocks (900 seconds)
+    white_seconds = 900.0
+    black_seconds = 900.0
 
     segment_files = []
     subtitles = []
     total_elapsed = 0.0
 
-    # Process each move
-    for idx, move_data in enumerate(MATCH_MOVES, 1):
+    for idx, move_data in enumerate(moves, 1):
         player = move_data["player"]
         uci_move = move_data["move"]
         san_move = move_data["san"]
         eval_score = move_data["eval"]
         dialogue = move_data["dialogue"]
-
-        print(f"\n[*] Processing Move {idx}/{len(MATCH_MOVES)}: [{player}] {san_move}")
+        strategy = move_data.get("strategy", "")
 
         # 1. Generate Voiceover Dialogue Clip
         clip_id = f"move_{idx:03d}"
         audio_path = await narrator.generate_dialogue(clip_id, player, dialogue)
         audio_dur = narrator.get_audio_duration(audio_path)
-        move_dur = audio_dur + 0.8  # Add short natural breathing pause
+        move_dur = audio_dur + 0.6  # Short natural pause
 
         # 2. Update Clocks
         if player == "White":
-            white_seconds -= (audio_dur + 2.0)
+            white_seconds -= (audio_dur + 1.5)
         else:
-            black_seconds -= (audio_dur + 2.0)
+            black_seconds -= (audio_dur + 1.5)
 
         # 3. Make move on board
         move_obj = chess.Move.from_uci(uci_move)
@@ -99,7 +98,7 @@ async def generate_all():
                 move_history[-1]["black"] = san_move
                 move_history[-1]["eval"] = eval_score
 
-        # 5. Render Board Frame
+        # 5. Render Board Frame with Dynamic Strategy Badge
         frame_img = renderer.render_frame(
             board=board,
             last_move=move_obj,
@@ -108,7 +107,8 @@ async def generate_all():
             black_clock=format_clock(black_seconds),
             active_player=player,
             eval_score=eval_score,
-            subtitle_text=dialogue
+            subtitle_text=dialogue,
+            strategy_name=strategy
         )
         frame_path = os.path.join(FRAMES_DIR, f"frame_{idx:03d}.png").replace("\\", "/")
         frame_img.save(frame_path)
@@ -122,7 +122,7 @@ async def generate_all():
         })
         total_elapsed += move_dur
 
-        # 7. Encode Video Segment with FFmpeg
+        # 7. Encode Video Segment with FFmpeg (1080p 60FPS)
         seg_mp4 = os.path.join(RECORDINGS_DIR, f"seg_{idx:03d}.mp4").replace("\\", "/")
         segment_files.append(seg_mp4)
 
@@ -132,15 +132,16 @@ async def generate_all():
                 "-loop", "1", "-t", str(move_dur), "-i", frame_path,
                 "-i", audio_path.replace("\\", "/"),
                 "-c:v", "libx264", "-tune", "stillimage", "-pix_fmt", "yuv420p",
+                "-r", "60",
                 "-c:a", "aac", "-b:a", "192k",
                 "-af", f"apad=whole_dur={move_dur}",
                 "-shortest",
                 seg_mp4
             ]
             subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            print(f"  [+] Segment encoded: {seg_mp4} ({move_dur:.1f}s)")
+            print(f"  [+] Segment {idx:02d}/{len(moves)} encoded: [{player}] {san_move} ({move_dur:.1f}s)")
         else:
-            print(f"  [+] Segment cached: {seg_mp4} ({move_dur:.1f}s)")
+            print(f"  [+] Segment {idx:02d}/{len(moves)} cached: [{player}] {san_move} ({move_dur:.1f}s)")
 
     # 8. Write Subtitles File (.srt)
     print("\n[*] Writing subtitles file...")
@@ -157,7 +158,7 @@ async def generate_all():
         for s in segment_files:
             f.write(f"file '{s}'\n")
 
-    print("[*] Merging all segments into master Grandmaster Match Video with FFmpeg...")
+    print("[*] Merging all segments into master 60FPS Grandmaster Match Video with FFmpeg...")
     final_cmd = [
         "ffmpeg", "-y",
         "-f", "concat", "-safe", "0",

@@ -91,7 +91,7 @@ class ChessBoardRenderer:
 
     def render_frame(self, board: chess.Board, last_move=None, move_history=None, 
                      white_clock="09:45", black_clock="09:50", active_player="White",
-                     eval_score=0.0, subtitle_text=""):
+                     eval_score=0.0, subtitle_text="", strategy_name=""):
         if move_history is None:
             move_history = []
 
@@ -114,29 +114,37 @@ class ChessBoardRenderer:
 
         # --- PLAYER 2: BLACK CARD (Top) ---
         b_card_y = 65
-        b_card_h = 100
+        b_card_h = 90
         b_active = (active_player == "Black")
         b_border = (0, 230, 255) if b_active else (45, 52, 64)
         draw.rectangle([sidebar_x, b_card_y, sidebar_x + sidebar_w, b_card_y + b_card_h], fill=(28, 32, 40), outline=b_border, width=2)
 
         # Circular Avatar for Black Player
-        av_cx, av_cy, av_r = sidebar_x + 55, b_card_y + 50, 36
+        av_cx, av_cy, av_r = sidebar_x + 50, b_card_y + 45, 34
         draw.ellipse([av_cx - av_r, av_cy - av_r, av_cx + av_r, av_cy + av_r], fill=(15, 18, 24), outline=(0, 230, 255) if b_active else (80, 90, 110), width=3)
-        draw.text((av_cx - 20, av_cy - 24), "\u265A", font=self.avatar_font, fill=(240, 240, 240)) # White king glyph inside dark circle for high contrast!
+        draw.text((av_cx - 18, av_cy - 22), "\u265A", font=self.avatar_font, fill=(240, 240, 240))
 
         # Player Details
-        draw.text((sidebar_x + 115, b_card_y + 22), "GM Victor \"The Iron Defense\"", font=self.player_font, fill=(255, 255, 255))
-        draw.text((sidebar_x + 115, b_card_y + 54), "Grandmaster  |  Rating: 2865  |  Pieces: Black", font=self.log_font, fill=(160, 175, 195))
+        draw.text((sidebar_x + 105, b_card_y + 18), "GM Victor \"The Iron Defense\"", font=self.player_font, fill=(255, 255, 255))
+        draw.text((sidebar_x + 105, b_card_y + 48), "Grandmaster  |  Rating: 2865  |  Pieces: Black", font=self.log_font, fill=(160, 175, 195))
 
         # Black Clock Box
-        draw.rectangle([sidebar_x + sidebar_w - 150, b_card_y + 22, sidebar_x + sidebar_w - 20, b_card_y + 78], 
+        draw.rectangle([sidebar_x + sidebar_w - 150, b_card_y + 18, sidebar_x + sidebar_w - 20, b_card_y + 72], 
                        fill=(18, 21, 26), outline=(0, 230, 255) if b_active else (55, 62, 75), width=2)
         clock_col = (0, 240, 255) if b_active else (180, 185, 195)
-        draw.text((sidebar_x + sidebar_w - 128, b_card_y + 34), black_clock, font=self.clock_font, fill=clock_col)
+        draw.text((sidebar_x + sidebar_w - 128, b_card_y + 28), black_clock, font=self.clock_font, fill=clock_col)
+
+        # --- DYNAMIC STRATEGY / TACTIC BADGE ---
+        strat_y = 165
+        strat_h = 36
+        draw.rectangle([sidebar_x, strat_y, sidebar_x + sidebar_w, strat_y + strat_h], fill=(22, 28, 38), outline=(218, 165, 32), width=1)
+        strat_display = strategy_name if strategy_name else "THEORY: Sicilian Defense (Najdorf Variation)"
+        draw.text((sidebar_x + 15, strat_y + 7), "STRATEGY:", font=self.log_bold, fill=(218, 165, 32))
+        draw.text((sidebar_x + 125, strat_y + 8), strat_display, font=self.log_font, fill=(0, 230, 255))
 
         # --- MOVE LOG CONTAINER (Center) ---
-        log_y = 180
-        log_h = 575
+        log_y = 210
+        log_h = 550
         draw.rectangle([sidebar_x, log_y, sidebar_x + sidebar_w, log_y + log_h], fill=(18, 21, 26), outline=(45, 52, 64), width=2)
 
         # Log Header Bar
