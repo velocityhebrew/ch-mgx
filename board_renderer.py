@@ -3,9 +3,37 @@ import math
 import chess
 from PIL import Image, ImageDraw, ImageFont
 
-FONT_PATH = "C:/Windows/Fonts/seguisym.ttf"
-BOLD_FONT_PATH = "C:/Windows/Fonts/segoeuib.ttf"
-REG_FONT_PATH = "C:/Windows/Fonts/segoeui.ttf"
+def find_font(font_type="regular", size=20):
+    candidates = []
+    if font_type == "piece":
+        candidates = [
+            "C:/Windows/Fonts/seguisym.ttf",
+            "/usr/share/fonts/truetype/freefont/FreeSerif.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/freefont/FreeSans.ttf"
+        ]
+    elif font_type == "bold":
+        candidates = [
+            "C:/Windows/Fonts/segoeuib.ttf",
+            "C:/Windows/Fonts/arialbd.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
+        ]
+    else:
+        candidates = [
+            "C:/Windows/Fonts/segoeui.ttf",
+            "C:/Windows/Fonts/arial.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"
+        ]
+
+    for p in candidates:
+        if os.path.exists(p):
+            try:
+                return ImageFont.truetype(p, size)
+            except Exception:
+                pass
+    return ImageFont.load_default()
 
 # Unicode piece mapping
 PIECE_GLYPHS = {
@@ -18,31 +46,18 @@ class ChessBoardRenderer:
         self.width = width
         self.height = height
         
-        # Load fonts
-        try:
-            self.piece_font = ImageFont.truetype(FONT_PATH, 74)
-            self.avatar_font = ImageFont.truetype(FONT_PATH, 42)
-            self.title_font = ImageFont.truetype(BOLD_FONT_PATH, 22)
-            self.player_font = ImageFont.truetype(BOLD_FONT_PATH, 20)
-            self.clock_font = ImageFont.truetype(BOLD_FONT_PATH, 26)
-            self.log_font = ImageFont.truetype(REG_FONT_PATH, 17)
-            self.log_bold = ImageFont.truetype(BOLD_FONT_PATH, 17)
-            self.sub_font = ImageFont.truetype(REG_FONT_PATH, 21)
-            self.sub_bold = ImageFont.truetype(BOLD_FONT_PATH, 21)
-            self.coord_font = ImageFont.truetype(BOLD_FONT_PATH, 15)
-            self.badge_font = ImageFont.truetype(BOLD_FONT_PATH, 13)
-        except Exception:
-            self.piece_font = ImageFont.load_default()
-            self.avatar_font = ImageFont.load_default()
-            self.title_font = ImageFont.load_default()
-            self.player_font = ImageFont.load_default()
-            self.clock_font = ImageFont.load_default()
-            self.log_font = ImageFont.load_default()
-            self.log_bold = ImageFont.load_default()
-            self.sub_font = ImageFont.load_default()
-            self.sub_bold = ImageFont.load_default()
-            self.coord_font = ImageFont.load_default()
-            self.badge_font = ImageFont.load_default()
+        # Load fonts with cross-platform Linux & Windows resolution
+        self.piece_font = find_font("piece", 74)
+        self.avatar_font = find_font("piece", 42)
+        self.title_font = find_font("bold", 22)
+        self.player_font = find_font("bold", 20)
+        self.clock_font = find_font("bold", 26)
+        self.log_font = find_font("regular", 17)
+        self.log_bold = find_font("bold", 17)
+        self.sub_font = find_font("regular", 21)
+        self.sub_bold = find_font("bold", 21)
+        self.coord_font = find_font("bold", 15)
+        self.badge_font = find_font("bold", 13)
 
         # Board layout dimensions
         self.sq_size = 104

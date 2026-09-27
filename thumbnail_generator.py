@@ -1,15 +1,12 @@
 import os
 import chess
 from PIL import Image, ImageDraw, ImageFont
-from board_renderer import ChessBoardRenderer
+from board_renderer import ChessBoardRenderer, find_font
 from grandmaster_database import get_kasparov_game_moves
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 RECORDINGS_DIR = os.path.join(BASE_DIR, "recordings")
 THUMBNAIL_PATH = os.path.join(RECORDINGS_DIR, "thumbnail.png")
-
-BOLD_FONT = "C:/Windows/Fonts/segoeuib.ttf"
-TITLE_FONT = "C:/Windows/Fonts/impact.ttf"
 
 def generate_youtube_thumbnail():
     print("[*] Generating high-CTR YouTube thumbnail at mid-game climax...")
@@ -47,14 +44,9 @@ def generate_youtube_thumbnail():
 
     draw = ImageDraw.Draw(frame)
 
-    try:
-        impact_big = ImageFont.truetype(TITLE_FONT, 56)
-        impact_sub = ImageFont.truetype(BOLD_FONT, 28)
-        badge_font = ImageFont.truetype(BOLD_FONT, 34)
-    except Exception:
-        impact_big = ImageFont.load_default()
-        impact_sub = ImageFont.load_default()
-        badge_font = ImageFont.load_default()
+    impact_big = find_font("bold", 56)
+    impact_sub = find_font("bold", 28)
+    badge_font = find_font("bold", 34)
 
     # Top YouTube Hook Banner
     draw.rectangle([940, 15, 1772, 60], fill=(220, 20, 60))
