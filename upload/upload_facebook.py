@@ -8,8 +8,16 @@ def upload_to_facebook(video_path, description, title="Grandmaster Chess AI"):
     print("📘 FACEBOOK UPLOAD")
     print("=" * 60)
 
-    access_token = (os.getenv('FACEBOOK_ACCESS_TOKEN') or os.getenv('FB_ACCESS_TOKEN', '')).strip()
-    page_id = (os.getenv('FACEBOOK_PAGE_ID') or os.getenv('FB_PAGE_ID', '')).strip()
+    access_token = (
+        os.getenv('FB_PAGE_ACCESS_TOKEN') or
+        os.getenv('FACEBOOK_PAGE_ACCESS_TOKEN') or
+        os.getenv('FACEBOOK_ACCESS_TOKEN') or
+        os.getenv('FB_ACCESS_TOKEN', '')
+    ).strip()
+    page_id = (
+        os.getenv('FB_PAGE_ID') or
+        os.getenv('FACEBOOK_PAGE_ID', '')
+    ).strip()
 
     if not access_token or not page_id:
         print("[facebook] ⚠️ Skipping Facebook upload (FACEBOOK_ACCESS_TOKEN or FACEBOOK_PAGE_ID not set).")
