@@ -1,7 +1,9 @@
 import os
 from .upload_to_youtube import upload_to_youtube
 from .upload_facebook import upload_to_facebook
-from .upload_instagram import upload_to_instagram
+
+# Note: Instagram publishing is disabled to prevent unnecessary Graph API calls and rate-limiting.
+# Publishing exclusively to YouTube and Facebook.
 
 def publish_all(video_path, thumbnail_path=None, title=None, description=None, tags=None):
     """Orchestrates multi-platform publishing to YouTube, Facebook, and Instagram."""
