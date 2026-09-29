@@ -4,6 +4,7 @@ Contains legendary, world-class historic games across different champions, openi
 Provides automatic daily rotation so every day features a completely new game and approach.
 """
 
+import os
 import io
 import datetime
 import chess
@@ -134,13 +135,23 @@ GRANDMASTER_GAMES = [
 
 def get_game_of_the_day(requested_id=None):
     """
-    Selects a game based on the requested_id or rotates deterministically by day of the year.
-    Every single day gets a completely different grandmaster game!
+    Selects a game based on the requested_id, or advances on every single GitHub Action run
+    using GITHUB_RUN_NUMBER, or rotates by day of year.
+    Every single run gets a completely different grandmaster game!
     """
     if requested_id:
         for g in GRANDMASTER_GAMES:
             if g["id"] == requested_id:
                 return g
+
+    # Check GITHUB_RUN_NUMBER so every GitHub Action trigger executes a new game
+    run_num = os.environ.get("GITHUB_RUN_NUMBER")
+    if run_num:
+        try:
+            idx = int(run_num) % len(GRANDMASTER_GAMES)
+            return GRANDMASTER_GAMES[idx]
+        except ValueError:
+            pass
 
     today = datetime.date.today()
     # Unique index for every day of the year

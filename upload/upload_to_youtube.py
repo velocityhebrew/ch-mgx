@@ -111,6 +111,16 @@ def add_video_to_playlist(youtube, video_id, playlist_title=DEFAULT_PLAYLIST_TIT
     except Exception as e:
         print(f"[youtube] ⚠️ Playlist notice: {e}")
 
+def sanitize_youtube_title(raw_title, max_len=95):
+    """Sanitizes title to conform strictly to YouTube API rules (<100 chars, no angle brackets)."""
+    if not raw_title:
+        return "Grandmaster Chess Showdown | Daily Battle"
+    t = str(raw_title).replace("<", "").replace(">", "").strip()
+    t = t.replace("’", "'").replace("‘", "'").replace("“", '"').replace("”", '"').replace("—", "-").replace("–", "-")
+    if len(t) > max_len:
+        t = t[:max_len-3].rstrip() + "..."
+    return t
+
 def upload_to_youtube(video_path, thumbnail_path=None, title=None, description=None, tags=None, playlist_title=DEFAULT_PLAYLIST_TITLE, privacy_status="public"):
     """Full YouTube upload with thumbnail and playlist insertion."""
     print("\n" + "=" * 60)
@@ -125,6 +135,8 @@ def upload_to_youtube(video_path, thumbnail_path=None, title=None, description=N
     if title is None:
         title = "Stockfish 19 Grandmaster Chess Showdown | Sicilian Defense Najdorf"
 
+    safe_title = sanitize_youtube_title(title)
+
     if tags is None:
         tags = [
             "Chess", "Stockfish 19", "Grandmaster Chess", "Sicilian Defense", 
@@ -134,7 +146,7 @@ def upload_to_youtube(video_path, thumbnail_path=None, title=None, description=N
 
     body = {
         "snippet": {
-            "title": title,
+            "title": safe_title,
             "description": description or "Daily Grandmaster Chess Match generated with Stockfish 19.",
             "tags": tags,
             "categoryId": "20" # Gaming

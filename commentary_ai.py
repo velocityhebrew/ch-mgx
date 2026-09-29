@@ -70,8 +70,8 @@ def generate_game_metadata(game_info, today_str):
         f"Opening: {opening}\n"
         f"Core Theme: {theme}\n"
         f"Date: {today_str}\n\n"
-        f"Requirements:\n"
-        f"- Title must be sensational and accurate (e.g. 'Fischer's Immortal Queen Sacrifice: The Game of the Century [{today_str}]')\n"
+        f"CRITICAL REQUIREMENTS:\n"
+        f"- Title must be sensational, strictly UNDER 85 characters, and use standard ASCII characters (e.g. '{white.split()[-1]} vs {black.split()[-1]}: {theme[:30]} [{today_str}]')\n"
         f"- hook_summary: 2-3 sentences explaining the tactical brilliance\n"
         f"- tags: 10-15 relevant high-search tags"
     )
@@ -80,6 +80,14 @@ def generate_game_metadata(game_info, today_str):
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_prompt}
     ]
+
+    def clean_title(t):
+        if not t: return f"{white} vs {black} [{today_str}]"
+        t = str(t).replace("<", "").replace(">", "").strip()
+        t = t.replace("’", "'").replace("‘", "'").replace("“", '"').replace("”", '"').replace("—", "-").replace("–", "-")
+        if len(t) > 90:
+            t = t[:87].rstrip() + "..."
+        return t
 
     raw = query_pollinations_chat(messages, temperature=0.7)
     if raw:
@@ -90,13 +98,16 @@ def generate_game_metadata(game_info, today_str):
             if clean.endswith("```"): clean = clean[:-3]
             clean = clean.strip()
             res = json.loads(clean)
+            if "title" in res:
+                res["title"] = clean_title(res["title"])
             return res
         except Exception as e:
             print(f"[commentary_ai] Parse error: {e}")
 
     # Robust fallback metadata
+    fallback_title = clean_title(f"{white.split()[-1]} vs {black.split()[-1]}: {theme} [{today_str}]")
     return {
-        "title": f"{white} vs {black}: {theme} [{today_str}]",
+        "title": fallback_title,
         "hook_summary": f"Relive the historic battle between {white} and {black} at {event}. Featuring the {opening} and masterclass endgame tactics.",
         "tags": [white, black, "Chess", "Grandmaster", opening, "Brilliant Move", "Chess Tactics", "Chess Magix", "Stockfish"]
     }
