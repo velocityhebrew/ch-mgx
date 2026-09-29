@@ -8,7 +8,7 @@ import chess
 
 from board_renderer import ChessBoardRenderer
 from match_narrator import ChessNarrator
-from grandmaster_database import get_kasparov_game_moves
+from grandmaster_database import get_game_of_the_day, parse_game_moves
 from thumbnail_generator import generate_youtube_thumbnail
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -35,14 +35,21 @@ def format_srt_time(seconds: float) -> str:
     millis = int((seconds - int(seconds)) * 1000)
     return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
 
-async def generate_all():
-    moves = get_kasparov_game_moves()
+async def generate_all(game_info=None):
+    if not game_info:
+        game_info = get_game_of_the_day()
+
+    moves = parse_game_moves(game_info)
+    white_player = game_info.get("white_name", "White")
+    black_player = game_info.get("black_name", "Black")
+
     print("=" * 70)
     print("      CHESS GRANDMASTER SHOWDOWN - 1080P 60FPS BROADCAST SUITE")
     print("=" * 70)
-    print(f"Total Moves to play: {len(moves)} plies (Full 10-14 Minute Epic)")
-    print(f"White Character: GM Garry (Voice: en-US-GuyNeural)")
-    print(f"Black Character: GM Veselin (Voice: en-US-ChristopherNeural)")
+    print(f"Match: {white_player} vs {black_player}")
+    print(f"Tournament/Event: {game_info.get('event', 'Championship')}")
+    print(f"Opening: {game_info.get('opening', 'Grandmaster Theory')}")
+    print(f"Total Moves to play: {len(moves)} plies")
     print(f"Output Video: {OUTPUT_VIDEO}")
     print("=" * 70)
 
@@ -59,6 +66,12 @@ async def generate_all():
     segment_files = []
     subtitles = []
     total_elapsed = 0.0
+
+    # Clear old segments for clean generation
+    concat_list_file = os.path.join(RECORDINGS_DIR, "concat_list.txt")
+    if os.path.exists(concat_list_file):
+        try: os.remove(concat_list_file)
+        except Exception: pass
 
     for idx, move_data in enumerate(moves, 1):
         player = move_data["player"]
@@ -98,7 +111,7 @@ async def generate_all():
                 move_history[-1]["black"] = san_move
                 move_history[-1]["eval"] = eval_score
 
-        # 5. Render Board Frame with Dynamic Strategy Badge
+        # 5. Render Board Frame with Dynamic Player Names and Strategy Badge
         frame_img = renderer.render_frame(
             board=board,
             last_move=move_obj,
@@ -108,7 +121,11 @@ async def generate_all():
             active_player=player,
             eval_score=eval_score,
             subtitle_text=dialogue,
-            strategy_name=strategy
+            strategy_name=strategy,
+            white_name=white_player,
+            black_name=black_player,
+            white_title=f"Grandmaster  |  Rating: {game_info.get('white_rating', '2800')}  |  Pieces: White",
+            black_title=f"Grandmaster  |  Rating: {game_info.get('black_rating', '2800')}  |  Pieces: Black"
         )
         frame_path = os.path.join(FRAMES_DIR, f"frame_{idx:03d}.png").replace("\\", "/")
         frame_img.save(frame_path)
@@ -126,71 +143,48 @@ async def generate_all():
         seg_mp4 = os.path.join(RECORDINGS_DIR, f"seg_{idx:03d}.mp4").replace("\\", "/")
         segment_files.append(seg_mp4)
 
-        if not (os.path.exists(seg_mp4) and os.path.getsize(seg_mp4) > 5000):
-            cmd = [
-                "ffmpeg", "-y",
-                "-loop", "1", "-t", str(move_dur), "-i", frame_path,
-                "-i", audio_path.replace("\\", "/"),
-                "-c:v", "libx264", "-tune", "stillimage", "-pix_fmt", "yuv420p",
-                "-r", "60",
-                "-c:a", "aac", "-b:a", "192k",
-                "-af", f"apad=whole_dur={move_dur}",
-                "-shortest",
-                seg_mp4
-            ]
-            subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            print(f"  [+] Segment {idx:02d}/{len(moves)} encoded: [{player}] {san_move} ({move_dur:.1f}s)")
-        else:
-            print(f"  [+] Segment {idx:02d}/{len(moves)} cached: [{player}] {san_move} ({move_dur:.1f}s)")
+        cmd = [
+            "ffmpeg", "-y",
+            "-loop", "1", "-t", str(move_dur), "-i", frame_path,
+            "-i", audio_path.replace("\\", "/"),
+            "-c:v", "libx264", "-tune", "stillimage", "-pix_fmt", "yuv420p",
+            "-r", "60",
+            "-c:a", "aac", "-b:a", "192k",
+            "-af", f"apad=whole_dur={move_dur}",
+            "-shortest",
+            seg_mp4
+        ]
+        res = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-    # 8. Write Subtitles File (.srt)
-    print("\n[*] Writing subtitles file...")
-    with open(SRT_FILE, "w", encoding="utf-8") as f:
+        if idx % 10 == 0 or idx == len(moves):
+            print(f"[*] Processed move {idx}/{len(moves)} ({san_move}) - Board & Voice Ready")
+
+    # 8. Generate Subtitle File (.srt)
+    with open(SRT_FILE, "w", encoding="utf-8") as srt_out:
         for i, sub in enumerate(subtitles, 1):
-            f.write(f"{i}\n")
-            f.write(f"{format_srt_time(sub['start'])} --> {format_srt_time(sub['end'])}\n")
-            f.write(f"[{sub['speaker']}]: {sub['text']}\n\n")
-    print(f"[+] Subtitles saved: {SRT_FILE}")
+            s_start = format_srt_time(sub["start"])
+            s_end = format_srt_time(sub["end"])
+            speaker_tag = f"[{white_player}]" if sub["speaker"] == "White" else f"[{black_player}]"
+            srt_out.write(f"{i}\n{s_start} --> {s_end}\n{speaker_tag} {sub['text']}\n\n")
+    print(f"[+] Subtitles generated at: {SRT_FILE}")
 
-    # 9. Concat all segments into Final Match Video
-    concat_list = os.path.join(RECORDINGS_DIR, "chess_concat_list.txt")
-    with open(concat_list, "w", encoding="utf-8") as f:
-        for s in segment_files:
-            f.write(f"file '{s}'\n")
+    # 9. Concat Segments into Single Video
+    print("[*] Concatenating all segment files into final master video...")
+    with open(concat_list_file, "w", encoding="utf-8") as f:
+        for seg in segment_files:
+            f.write(f"file '{os.path.basename(seg)}'\n")
 
-    print("[*] Merging all segments into master 60FPS Grandmaster Match Video with FFmpeg...")
-    final_cmd = [
+    concat_cmd = [
         "ffmpeg", "-y",
-        "-f", "concat", "-safe", "0",
-        "-i", concat_list,
+        "-f", "concat",
+        "-safe", "0",
+        "-i", concat_list_file,
         "-c", "copy",
         OUTPUT_VIDEO
     ]
-    subprocess.run(final_cmd, check=True)
-
-    # Clean up intermediate segment files
-    for s in segment_files:
-        try:
-            os.remove(s)
-        except Exception:
-            pass
-    try:
-        os.remove(concat_list)
-    except Exception:
-        pass
-
-    # 10. Generate YouTube Thumbnail
-    thumb_path = generate_youtube_thumbnail()
-
-    size_mb = os.path.getsize(OUTPUT_VIDEO) / (1024 * 1024)
-    print("\n" + "=" * 70)
-    print("[SUCCESS] GRANDMASTER CHESS MATCH VIDEO & THUMBNAIL READY!")
-    print(f"Video File: {OUTPUT_VIDEO}")
-    print(f"Video Size: {size_mb:.2f} MB")
-    print(f"Duration:   {total_elapsed:.1f} seconds ({total_elapsed/60.0:.2f} minutes)")
-    print(f"Subtitles:  {SRT_FILE}")
-    print(f"Thumbnail:  {thumb_path}")
-    print("=" * 70)
+    subprocess.run(concat_cmd, cwd=RECORDINGS_DIR, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    print(f"[SUCCESS] Final 1080p 60FPS Video Exported to: {OUTPUT_VIDEO}")
+    return OUTPUT_VIDEO
 
 if __name__ == "__main__":
     asyncio.run(generate_all())

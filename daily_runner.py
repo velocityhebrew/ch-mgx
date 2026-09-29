@@ -5,44 +5,72 @@ import datetime
 from generate_chess_video import generate_all
 from thumbnail_generator import generate_youtube_thumbnail
 from upload.publisher import publish_all
+from grandmaster_database import get_game_of_the_day
+from commentary_ai import generate_game_metadata
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 RECORDINGS_DIR = os.path.join(BASE_DIR, "recordings")
 
-def run_daily_pipeline():
+def run_daily_pipeline(requested_game_id=None):
     today_str = datetime.date.today().strftime("%B %d, %Y")
+    
+    # 1. Dynamically Select Today's Grandmaster Game
+    game_info = get_game_of_the_day(requested_game_id)
+    white_player = game_info.get("white_name", "White")
+    black_player = game_info.get("black_name", "Black")
+    event = game_info.get("event", "Championship")
+    opening = game_info.get("opening", "Grandmaster Theory")
+    theme = game_info.get("theme", "Immortal Game")
+
     print("=" * 70)
     print(f"       CHESS AI DAILY MULTI-PLATFORM PUBLISHER - {today_str}")
     print("=" * 70)
+    print(f"Game of the Day : {game_info['title']}")
+    print(f"Matchup         : {white_player} vs {black_player}")
+    print(f"Event           : {event}")
+    print(f"Opening         : {opening}")
+    print(f"Tactical Theme  : {theme}")
+    print("=" * 70)
 
-    # 1. Generate 10-14 Minute Grandmaster Match Video (1080p 60FPS)
-    print("[STEP 1/3] Generating today's Grandmaster Chess Video...")
-    asyncio.run(generate_all())
+    # 2. Query Paid Pollinations AI for Viral Metadata & Hooks
+    print("\n[AI METADATA] Generating dynamic YouTube/Facebook metadata via Pollinations AI...")
+    ai_meta = generate_game_metadata(game_info, today_str)
+    title = ai_meta.get("title", f"{white_player} vs {black_player}: {theme} [{today_str}]")
+    hook = ai_meta.get("hook_summary", f"Relive the historic battle between {white_player} and {black_player} at {event}.")
+    tags = ai_meta.get("tags", [white_player, black_player, "Chess", "Grandmaster", opening, "Brilliant Move", "Stockfish"])
 
-    # 2. Generate High-CTR YouTube Thumbnail
-    print("\n[STEP 2/3] Generating YouTube Thumbnail...")
-    thumb_path = generate_youtube_thumbnail()
+    print(f"Title: {title}")
 
-    # 3. Multi-Platform Broadcast (YouTube, Facebook, Instagram)
+    # 3. Generate Grandmaster Match Video (1080p 60FPS)
+    print("\n[STEP 1/3] Generating today's Grandmaster Chess Video...")
+    asyncio.run(generate_all(game_info))
+
+    # 4. Generate High-CTR YouTube Thumbnail
+    print("\n[STEP 2/3] Generating High-CTR Thumbnail...")
+    thumb_path = generate_youtube_thumbnail(game_info)
+
+    # 5. Multi-Platform Broadcast (YouTube & Facebook)
     video_path = os.path.join(RECORDINGS_DIR, "grandmaster_chess_battle.mp4")
     print("\n[STEP 3/3] Broadcasting to Social Channels...")
 
-    title = f"Kasparov's Immortal: The Greatest Chess Game Ever Played [{today_str}]"
-    description = f"""The Greatest Chess Game in History: Garry Kasparov vs Veselin Topalov (Wijk aan Zee 1999).
+    description = f"""{title}
 
-Featuring the legendary double rook sacrifice (Rxd4!! and Re7+!!) and the historical king hunt across the board.
-Analyzed and voiced by Grandmaster AI with real-time tactical commentary, arrows, and strategy breakdowns.
+{hook}
 
-PGN & Moves:
-1. e4 d6 2. d4 Nf6 3. Nc3 g6 4. Be3 Bg7 5. Qd2 c6 6. f3 b5 7. Nge2 Nbd7 8. Bh6 Bxh6 9. Qxh6 Bb7 10. a3 e5 11. O-O-O Qe7 12. Kb1 a6 13. Nc1 O-O-O 14. Nb3 exd4 15. Rxd4 c5 16. Rd1 Nb6 17. g3 Kb8 18. Na5 Ba8 19. Bh3 d5 20. Qf4+ Ka7 21. Rhe1 d4 22. Nd5 Nbxd5 23. exd5 Qd6 24. Rxd4!! cxd4 25. Re7+!! Kb6 26. Qxd4+ Kxa5 27. b4+ Ka4 28. Qc3 Qxd5 29. Ra7 Bb7 30. Rxb7 Qc4 31. Qxf6 Kxa3 32. Qxa6+ Kxb4 33. c3+ Kxc3 34. Qa1+ Kd2 35. Qb2+ Kd1 36. Bf1 Rd2 37. Rd7 Rxd7 38. Bxc4 bxc4 39. Qxh8 Rd3 40. Qa8 c3 41. Qa4+ Ke1 42. f4 f5 43. Kc1 Rd2 44. Qa7 1-0
+Match Information:
+* White: {white_player} ({game_info.get('white_rating', '2800')})
+* Black: {black_player} ({game_info.get('black_rating', '2800')})
+* Event: {event}
+* Opening: {opening}
+* Theme: {theme}
 
-#Chess #Kasparov #ImmortalGame #Stockfish #ChessTactics #Grandmaster #ChessAI #BrilliantMove
+Full PGN & Moves:
+{game_info.get('pgn', '')}
+
+Analyzed by Stockfish 19 & Voiced by Grandmaster AI with real-time tactical evaluation, board annotations, and live clocks.
+
+#Chess #Grandmaster #{white_player.replace(' ', '')} #{black_player.replace(' ', '')} #ChessTactics #ChessAI #BrilliantMove #ChessMagix
 """
-    tags = [
-        "Chess", "Kasparov", "Immortal Game", "Stockfish", "Grandmaster", 
-        "Chess Tactics", "Chess AI", "Chess Strategy", "Rapid Chess", 
-        "Brilliant Move", "Magnus Carlsen", "Hikaru Nakamura"
-    ]
 
     results = publish_all(
         video_path=video_path,
@@ -57,4 +85,5 @@ PGN & Moves:
     print("=" * 70)
 
 if __name__ == "__main__":
-    run_daily_pipeline()
+    game_arg = sys.argv[1] if len(sys.argv) > 1 else None
+    run_daily_pipeline(game_arg)

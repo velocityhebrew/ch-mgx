@@ -106,7 +106,10 @@ class ChessBoardRenderer:
 
     def render_frame(self, board: chess.Board, last_move=None, move_history=None, 
                      white_clock="09:45", black_clock="09:50", active_player="White",
-                     eval_score=0.0, subtitle_text="", strategy_name=""):
+                     eval_score=0.0, subtitle_text="", strategy_name="",
+                     white_name="GM Garry Kasparov", black_name="GM Veselin Topalov",
+                     white_title="Grandmaster  |  Rating: 2851  |  Pieces: White",
+                     black_title="Grandmaster  |  Rating: 2800  |  Pieces: Black"):
         if move_history is None:
             move_history = []
 
@@ -140,8 +143,8 @@ class ChessBoardRenderer:
         draw.text((av_cx - 18, av_cy - 22), "\u265A", font=self.avatar_font, fill=(240, 240, 240))
 
         # Player Details
-        draw.text((sidebar_x + 105, b_card_y + 18), "GM Victor \"The Iron Defense\"", font=self.player_font, fill=(255, 255, 255))
-        draw.text((sidebar_x + 105, b_card_y + 48), "Grandmaster  |  Rating: 2865  |  Pieces: Black", font=self.log_font, fill=(160, 175, 195))
+        draw.text((sidebar_x + 105, b_card_y + 18), black_name, font=self.player_font, fill=(255, 255, 255))
+        draw.text((sidebar_x + 105, b_card_y + 48), black_title, font=self.log_font, fill=(160, 175, 195))
 
         # Black Clock Box
         draw.rectangle([sidebar_x + sidebar_w - 150, b_card_y + 18, sidebar_x + sidebar_w - 20, b_card_y + 72], 
@@ -163,10 +166,12 @@ class ChessBoardRenderer:
         draw.rectangle([sidebar_x, log_y, sidebar_x + sidebar_w, log_y + log_h], fill=(18, 21, 26), outline=(45, 52, 64), width=2)
 
         # Log Header Bar
+        w_short = white_name.split()[1] if len(white_name.split()) > 1 else white_name
+        b_short = black_name.split()[1] if len(black_name.split()) > 1 else black_name
         draw.rectangle([sidebar_x, log_y, sidebar_x + sidebar_w, log_y + 44], fill=(26, 30, 38))
         draw.text((sidebar_x + 25, log_y + 12), "MOVE #", font=self.log_bold, fill=(170, 180, 195))
-        draw.text((sidebar_x + 150, log_y + 12), "WHITE (GM Alexander)", font=self.log_bold, fill=(255, 215, 0))
-        draw.text((sidebar_x + 450, log_y + 12), "BLACK (GM Victor)", font=self.log_bold, fill=(0, 230, 255))
+        draw.text((sidebar_x + 150, log_y + 12), f"WHITE ({w_short})", font=self.log_bold, fill=(255, 215, 0))
+        draw.text((sidebar_x + 450, log_y + 12), f"BLACK ({b_short})", font=self.log_bold, fill=(0, 230, 255))
         draw.text((sidebar_x + 720, log_y + 12), "EVAL", font=self.log_bold, fill=(170, 180, 195))
 
         # Display last 13 moves in log
@@ -204,8 +209,8 @@ class ChessBoardRenderer:
         draw.text((w_cx - 20, w_cy - 24), "\u2654", font=self.avatar_font, fill=(20, 20, 20)) # Dark king glyph inside bright circle for high contrast!
 
         # White Details
-        draw.text((sidebar_x + 115, w_card_y + 22), "GM Alexander \"The Tactician\"", font=self.player_font, fill=(255, 255, 255))
-        draw.text((sidebar_x + 115, w_card_y + 54), "Grandmaster  |  Rating: 2845  |  Pieces: White", font=self.log_font, fill=(160, 175, 195))
+        draw.text((sidebar_x + 115, w_card_y + 22), white_name, font=self.player_font, fill=(255, 255, 255))
+        draw.text((sidebar_x + 115, w_card_y + 54), white_title, font=self.log_font, fill=(160, 175, 195))
 
         # White Clock Box
         draw.rectangle([sidebar_x + sidebar_w - 150, w_card_y + 22, sidebar_x + sidebar_w - 20, w_card_y + 78], 

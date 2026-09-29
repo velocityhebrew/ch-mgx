@@ -1,47 +1,153 @@
-import urllib.request
-import urllib.parse
+"""
+Grandmaster AI Commentary & Metadata Engine
+Powered by Pollinations AI Official Paid API (https://gen.pollinations.ai/v1/chat/completions)
+Generates high-IQ tactical commentary, viral YouTube titles, SEO descriptions, and thumbnail hooks.
+"""
+
+import os
 import json
+import urllib.request
+import urllib.error
 
-POLLINATIONS_BASE_URL = "https://text.pollinations.ai/"
+POLLINATIONS_PAID_ENDPOINT = "https://gen.pollinations.ai/v1/chat/completions"
 
-def query_pollinations_ai(prompt: str, timeout: int = 8) -> str:
-    """Queries Pollinations.ai free API for dynamic AI commentary."""
+def get_api_key():
+    key = os.environ.get("POLLINATIONS_API_KEY", "")
+    if not key:
+        # Try reading from Windows User environment
+        try:
+            import subprocess
+            key = subprocess.check_output(
+                ["powershell", "-NoProfile", "-Command", "[System.Environment]::GetEnvironmentVariable('POLLINATIONS_API_KEY', 'User')"],
+                text=True
+            ).strip()
+        except Exception:
+            pass
+    return key
+
+def query_pollinations_chat(messages, model="openai", temperature=0.7, timeout=30):
+    key = get_api_key()
+    headers = {
+        "Content-Type": "application/json",
+        "User-Agent": "ChessMagixAI/2.0"
+    }
+    if key:
+        headers["Authorization"] = f"Bearer {key}"
+
+    payload = {
+        "model": model,
+        "messages": messages,
+        "temperature": temperature
+    }
+
+    req = urllib.request.Request(POLLINATIONS_PAID_ENDPOINT, data=json.dumps(payload).encode("utf-8"), headers=headers)
     try:
-        url = POLLINATIONS_BASE_URL + urllib.parse.quote(prompt)
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            text = resp.read().decode("utf-8", errors="ignore").strip()
-            # Clean up response quotes
-            text = text.strip('"\'')
-            return text
+            data = json.loads(resp.read().decode("utf-8"))
+            return data["choices"][0]["message"]["content"].strip()
     except Exception as e:
-        print(f"[pollinations] Note: {e} - using tactical fallback")
-        return ""
+        print(f"[commentary_ai] API Warning: {e}")
+        return None
 
-def get_dynamic_commentary(player_name: str, san_move: str, strategy: str, eval_score: str, fallback_text: str) -> str:
+def generate_game_metadata(game_info, today_str):
     """
-    Generates dynamic grandmaster commentary using Pollinations AI,
-    falling back to curated strategic text if unavailable.
+    Uses Pollinations AI to generate a viral, high-CTR YouTube title, description, and tags
+    tailored specifically to the game of the day.
+    """
+    white = game_info.get("white_name", "White")
+    black = game_info.get("black_name", "Black")
+    event = game_info.get("event", "World Championship")
+    opening = game_info.get("opening", "Grandmaster Defense")
+    theme = game_info.get("theme", "Immortal Masterpiece")
+
+    system_prompt = (
+        "You are an elite YouTube strategist and Grandmaster chess analyst for a top-tier chess channel ('Chess Magix'). "
+        "Return ONLY valid JSON with keys: 'title', 'hook_summary', 'tags'."
+    )
+    user_prompt = (
+        f"Generate high-CTR YouTube metadata for this legendary chess game:\n"
+        f"Match: {white} vs {black} ({event})\n"
+        f"Opening: {opening}\n"
+        f"Core Theme: {theme}\n"
+        f"Date: {today_str}\n\n"
+        f"Requirements:\n"
+        f"- Title must be sensational and accurate (e.g. 'Fischer's Immortal Queen Sacrifice: The Game of the Century [{today_str}]')\n"
+        f"- hook_summary: 2-3 sentences explaining the tactical brilliance\n"
+        f"- tags: 10-15 relevant high-search tags"
+    )
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt}
+    ]
+
+    raw = query_pollinations_chat(messages, temperature=0.7)
+    if raw:
+        try:
+            clean = raw.strip()
+            if clean.startswith("```json"): clean = clean[7:]
+            if clean.startswith("```"): clean = clean[3:]
+            if clean.endswith("```"): clean = clean[:-3]
+            clean = clean.strip()
+            res = json.loads(clean)
+            return res
+        except Exception as e:
+            print(f"[commentary_ai] Parse error: {e}")
+
+    # Robust fallback metadata
+    return {
+        "title": f"{white} vs {black}: {theme} [{today_str}]",
+        "hook_summary": f"Relive the historic battle between {white} and {black} at {event}. Featuring the {opening} and masterclass endgame tactics.",
+        "tags": [white, black, "Chess", "Grandmaster", opening, "Brilliant Move", "Chess Tactics", "Chess Magix", "Stockfish"]
+    }
+
+def generate_thumbnail_copy(game_info):
+    """
+    Generates dynamic badge text and top hook banner for the YouTube thumbnail.
+    """
+    white = game_info.get("white_name", "White")
+    black = game_info.get("black_name", "Black")
+    theme = game_info.get("theme", "Grandmaster Battle")
+
+    system_prompt = "You write punchy, 3-to-5 word YouTube thumbnail badge text. Return ONLY valid JSON with keys: 'top_banner', 'badge', 'bottom_callout'."
+    user_prompt = f"Create thumbnail text for {white} vs {black} - {theme}."
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt}
+    ]
+
+    raw = query_pollinations_chat(messages, temperature=0.6, timeout=15)
+    if raw:
+        try:
+            clean = raw.strip()
+            if clean.startswith("```json"): clean = clean[7:]
+            if clean.startswith("```"): clean = clean[3:]
+            if clean.endswith("```"): clean = clean[:-3]
+            return json.loads(clean.strip())
+        except Exception:
+            pass
+
+    return {
+        "top_banner": f"LEGENDARY GRANDMASTER CLASH: {white.upper()}",
+        "badge": "!! BRILLIANT MOVE",
+        "bottom_callout": f"{theme.upper()}?!"
+    }
+
+def get_dynamic_commentary(player_name, san_move, strategy, eval_score, fallback_text):
+    """
+    Generates dynamic grandmaster spoken commentary for a single move using Pollinations AI.
     """
     prompt = (
-        f"You are {player_name}, a 2850-rated Chess Grandmaster playing blitz. "
-        f"You just played the move {san_move}. Strategy: {strategy}. Evaluation: {eval_score}. "
-        f"In 1 to 2 sharp, intellectual, confident sentences, explain your move and its tactical threat. "
-        f"No markdown, no bullet points, just spoken words."
+        f"You are {player_name}, a 2850-rated Grandmaster in rapid chess. "
+        f"You just played {san_move}. Strategy: {strategy}. Eval: {eval_score}. "
+        f"Speak 1-2 confident, sharp sentences explaining the move. Spoken words only."
     )
-    
-    generated = query_pollinations_ai(prompt)
-    if generated and len(generated) > 20 and len(generated) < 260:
-        return generated
-    
+    messages = [
+        {"role": "system", "content": "You are a world-class chess grandmaster talking during a live match."},
+        {"role": "user", "content": prompt}
+    ]
+    resp = query_pollinations_chat(messages, temperature=0.7, timeout=10)
+    if resp and 15 < len(resp) < 220:
+        return resp.strip('"\'')
     return fallback_text
-
-if __name__ == "__main__":
-    test_commentary = get_dynamic_commentary(
-        player_name="GM Alexander",
-        san_move="Nd5!!",
-        strategy="Central Knight Sacrifice",
-        eval_score="+1.8",
-        fallback_text="Knight takes d5!! A thunderous positional sacrifice right in the center!"
-    )
-    print("Commentary Result:\n", test_commentary)
