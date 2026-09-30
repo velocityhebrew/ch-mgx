@@ -6,7 +6,7 @@ from generate_chess_video import generate_all
 from thumbnail_generator import generate_youtube_thumbnail
 from upload.publisher import publish_all
 from grandmaster_database import get_game_of_the_day
-from commentary_ai import generate_game_metadata
+from commentary_ai import select_daily_grandmaster_game, generate_game_metadata
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 RECORDINGS_DIR = os.path.join(BASE_DIR, "recordings")
@@ -14,8 +14,8 @@ RECORDINGS_DIR = os.path.join(BASE_DIR, "recordings")
 def run_daily_pipeline(requested_game_id=None):
     today_str = datetime.date.today().strftime("%B %d, %Y")
     
-    # 1. Dynamically Select Today's Grandmaster Game
-    game_info = get_game_of_the_day(requested_game_id)
+    # 1. Dynamically Select Today's Grandmaster Game via AI / Verified Rotation
+    game_info = select_daily_grandmaster_game(requested_game_id)
     white_player = game_info.get("white_name", "White")
     black_player = game_info.get("black_name", "Black")
     event = game_info.get("event", "Championship")
