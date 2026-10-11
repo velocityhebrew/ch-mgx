@@ -14,17 +14,22 @@ def publish_all(video_path, thumbnail_path=None, title=None, description=None, t
     results = {}
 
     # 1. YouTube (with playlist & custom thumbnail)
-    try:
-        results['youtube'] = upload_to_youtube(
-            video_path=video_path,
-            thumbnail_path=thumbnail_path,
-            title=title,
-            description=description,
-            tags=tags
-        )
-    except Exception as e:
-        print(f"[publisher] YouTube error: {e}")
-        results['youtube'] = {"status": "error", "error": str(e)}
+    upload_yt_env = os.getenv("UPLOAD_YOUTUBE", "true").lower()
+    if upload_yt_env in ("false", "0", "no"):
+        print("[publisher] ⏸️ Skipping YouTube upload (UPLOAD_YOUTUBE=false). Facebook upload will proceed.")
+        results['youtube'] = {"status": "skipped", "reason": "UPLOAD_YOUTUBE=false"}
+    else:
+        try:
+            results['youtube'] = upload_to_youtube(
+                video_path=video_path,
+                thumbnail_path=thumbnail_path,
+                title=title,
+                description=description,
+                tags=tags
+            )
+        except Exception as e:
+            print(f"[publisher] YouTube error: {e}")
+            results['youtube'] = {"status": "error", "error": str(e)}
 
     # 2. Facebook
     try:
