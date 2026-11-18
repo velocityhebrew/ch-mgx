@@ -60,29 +60,34 @@ def generate_youtube_thumbnail(game_info=None):
         strategy_name=climax_move["strategy"],
         white_name=game_info.get("white_name", "White"),
         black_name=game_info.get("black_name", "Black"),
-        white_title=f"Grandmaster  |  Rating: {game_info.get('white_rating', '2800')}  |  Pieces: White",
-        black_title=f"Grandmaster  |  Rating: {game_info.get('black_rating', '2800')}  |  Pieces: Black"
+        white_title=f"Grandmaster  •  {game_info.get('white_rating', '2800')}  •  White",
+        black_title=f"Grandmaster  •  {game_info.get('black_rating', '2800')}  •  Black"
     )
 
     draw = ImageDraw.Draw(frame)
 
-    impact_sub = find_font("bold", 28)
+    impact_sub = find_font("bold", 30)
     badge_font = find_font("bold", 34)
+    callout_font = find_font("bold", 36)
 
-    # Top YouTube Hook Banner
-    draw.rectangle([940, 15, 1772, 60], fill=(220, 20, 60))
-    draw.text((960, 18), top_hook[:48], font=impact_sub, fill=(255, 255, 255))
+    # Top hook banner across the header (brand stays visible on the left)
+    draw.rounded_rectangle([400, 8, 1380, 56], radius=12, fill=(200, 30, 45))
+    draw.text((420, 15), top_hook[:52], font=impact_sub, fill=(255, 255, 255))
 
-    # Climax Badge on Board
-    badge_w = min(460, len(badge_text) * 22 + 40)
-    badge_x, badge_y = 960, 85
-    draw.rectangle([badge_x, badge_y, badge_x + badge_w, badge_y + 60], fill=(0, 200, 255), outline=(255, 255, 255), width=3)
-    draw.text((badge_x + 18, badge_y + 10), badge_text, font=badge_font, fill=(0, 0, 0))
+    # Climax badge on the board's top-left corner
+    badge_w = min(560, draw.textlength(badge_text, font=badge_font) + 44)
+    badge_x, badge_y = 1052, 104
+    draw.rounded_rectangle([badge_x, badge_y, badge_x + badge_w, badge_y + 62],
+                           radius=12, fill=(232, 184, 66), outline=(255, 255, 255), width=3)
+    draw.text((badge_x + 22, badge_y + 12), badge_text, font=badge_font, fill=(15, 18, 24))
 
-    # Bottom Callout Banner
-    callout_y = 860
-    draw.rectangle([940, callout_y, 1772, callout_y + 55], fill=(218, 165, 32), outline=(255, 255, 255), width=2)
-    draw.text((960, callout_y + 10), callout_text[:46], font=impact_sub, fill=(0, 0, 0))
+    # Bottom callout replaces the commentary banner
+    draw.rounded_rectangle([48, 950, 1872, 1054], radius=16, fill=(232, 184, 66))
+    ct = callout_text
+    while draw.textlength(ct, font=callout_font) > 1760 and callout_font.size > 20:
+        callout_font = find_font("bold", callout_font.size - 2)
+    cw = draw.textlength(ct, font=callout_font)
+    draw.text((960 - cw / 2, 1002 - callout_font.size / 2), ct, font=callout_font, fill=(15, 18, 24))
 
     frame.save(THUMBNAIL_PATH)
     print(f"[SUCCESS] YouTube thumbnail generated at: {THUMBNAIL_PATH}")

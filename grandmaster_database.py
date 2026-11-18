@@ -6,6 +6,8 @@ Provides automatic daily rotation and AI dynamic selection so every day features
 
 import os
 import io
+import math
+import random
 import datetime
 import chess
 import chess.pgn
@@ -465,90 +467,109 @@ GRANDMASTER_GAMES = [
 
 def classify_move_strategy(board_before, move, san, ply_idx, game_info):
     """
-    Classifies each move into rich, instructional chess concepts:
-    - Opening principles
-    - Center pawn control and levers
-    - Outpost knight coordination
-    - Diagonal bishop pressure
-    - Open-file rook activation
-    - Queen infiltration
-    - King safety / castling
-    - Captures and material elimination
-    - Tactical checks and mating nets
+    Classifies each move and writes natural, spoken-style commentator lines.
+    Multiple variants per category, picked deterministically per ply so the
+    narration stays varied without repeating the same sentence every move.
     """
     climax_ply = game_info.get("climax_ply", 30)
     climax_badge = game_info.get("climax_badge", "!! BRILLIANT MOVE")
-    theme = game_info.get("theme", "Brilliant tactical masterclass")
+    theme = game_info.get("theme", "a brilliant tactical finish")
     opening = game_info.get("opening", "Grandmaster Theory")
+    opening_short = opening.split("(")[0].strip()
+    sq = chess.square_name(move.to_square)
+    rng = random.Random(ply_idx * 7919)
+
+    def pick(lines):
+        return rng.choice(lines)
 
     if ply_idx == climax_ply:
-        return (
-            climax_badge,
-            f"{san}!! An extraordinary turning point! {theme}."
-        )
+        theme_short = theme.split(" and ")[0].split(" with ")[0]
+        if len(theme_short) > 60:
+            theme_short = theme_short[:57] + "..."
+        return climax_badge, pick([
+            f"Oh!! {san}!! Did you see that?! {theme_short}!",
+            f"{san}!! Unbelievable! He's going for {theme_short}!",
+            f"Wait, wait... {san}!! That is the move of the game! {theme_short}!",
+            f"{san}!! Nobody saw that coming! {theme_short}!",
+        ])
     if '#' in san:
-        return (
-            "CHECKMATE: The Decisive Finish",
-            f"{san} delivers checkmate! The game is decided with absolute grandmaster precision!"
-        )
+        return "CHECKMATE", pick([
+            f"{san}, checkmate! It's over! What a finish!",
+            f"Checkmate! {san} ends it in style. Absolutely brutal.",
+            f"And {san} is checkmate! The king has nowhere to run. Game over!",
+        ])
     if '+' in san:
-        return (
-            "TACTICAL CHECK: King Under Siege",
-            f"{san} delivers check! Forcing the enemy king to defend or surrender critical ground."
-        )
+        return "CHECK!", pick([
+            f"{san}, check! The king has to respond.",
+            f"Check! {san} forces the issue.",
+            f"{san}, check! That one's going to sting.",
+            f"He throws in {san}, check! The king is under fire.",
+        ])
     if san in ("O-O", "O-O-O"):
         side = "kingside" if san == "O-O" else "queenside"
-        return (
-            f"KING SAFETY: Castle {side.capitalize()}",
-            f"Castling {side}, securing the monarch while mobilizing the rook for central conflict."
-        )
+        return "KING SAFETY", pick([
+            f"Castles {side}. King tucked away, rook joins the party.",
+            f"He castles {side}, and suddenly that rook is in the game.",
+            f"Castling {side}. Safety first, attack second.",
+        ])
     if 'x' in san:
         captured = board_before.piece_at(move.to_square)
-        cap_name = chess.piece_name(captured.piece_type).capitalize() if captured else "piece"
-        return (
-            f"MATERIAL EXCHANGE: Capturing {cap_name}",
-            f"Capturing on {chess.square_name(move.to_square)}, dismantling the opponent's defensive structure."
-        )
+        cap_name = chess.piece_name(captured.piece_type) if captured else "piece"
+        return f"EXCHANGE ON {sq.upper()}", pick([
+            f"Takes on {sq}! The {cap_name} comes off.",
+            f"Capture on {sq}. Material changes hands.",
+            f"He snaps off the {cap_name} on {sq}. No hesitation.",
+            f"{san}! The {cap_name} is gone and the position blows open.",
+        ])
 
     piece = board_before.piece_at(move.from_square)
     ptype = piece.piece_type if piece else chess.PAWN
 
     if ply_idx <= 8:
-        return (
-            f"OPENING THEORY: {opening}",
-            f"Playing {san}, following {opening} principles to establish central space and piece harmony."
-        )
+        return f"OPENING: {opening_short}", pick([
+            f"{san}. Straight into the {opening_short}.",
+            f"{san}. We're playing the {opening_short} today.",
+            f"He goes {san}. Classic {opening_short} setup.",
+            f"And it's {san}. Both players know this theory cold.",
+            f"{san}. Developing fast, right out of the opening.",
+        ])
 
     if ptype == chess.KNIGHT:
-        return (
-            "KNIGHT OUTPOST: Tactical Coordination",
-            f"Maneuvering the knight to {chess.square_name(move.to_square)}, targeting outposts and anchoring central control."
-        )
-    elif ptype == chess.BISHOP:
-        return (
-            "BISHOP DIAGONAL: Long-Range Pressure",
-            f"Deploying the bishop along the diagonal, creating pin threats and cutting off enemy escape paths."
-        )
-    elif ptype == chess.ROOK:
-        return (
-            "ROOK ACTIVITY: Open File Control",
-            f"Lifting the rook onto {chess.square_name(move.to_square)}, exerting overwhelming vertical pressure."
-        )
-    elif ptype == chess.QUEEN:
-        return (
-            "QUEEN INVASION: Central Domination",
-            f"Activating the queen to {chess.square_name(move.to_square)}, coordinating with attacking pieces for lethal threats."
-        )
-    elif ptype == chess.PAWN:
-        return (
-            "PAWN STRUCTURE: Space & Pawn Break",
-            f"Pushing {san}, contesting square control and creating passing lanes for the army."
-        )
-    else:
-        return (
-            "KING MANEUVER: Positional Refinement",
-            f"Stepping the king to {chess.square_name(move.to_square)}, evading tactical pins and improving king safety."
-        )
+        return "KNIGHT OUTPOST", pick([
+            f"Knight to {sq}. That is a monster outpost.",
+            f"The knight hops into {sq}, and good luck chasing it away.",
+            f"Knight to {sq}, eyeing all those weak squares.",
+            f"He reroutes the knight to {sq}. Slow maneuver, big plans.",
+        ])
+    if ptype == chess.BISHOP:
+        return "BISHOP PRESSURE", pick([
+            f"Bishop to {sq}, raking that long diagonal.",
+            f"The bishop lands on {sq}. That pressure is annoying.",
+            f"Bishop slides to {sq}. Long-range trouble is brewing.",
+        ])
+    if ptype == chess.ROOK:
+        return "ROOK ACTIVATION", pick([
+            f"Rook to {sq}. That file is open for business.",
+            f"He lifts the rook to {sq}. Heavy artillery, coming online.",
+            f"Rook swings over to {sq}. The back ranks are getting nervous.",
+        ])
+    if ptype == chess.QUEEN:
+        return "QUEEN ATTACK", pick([
+            f"Queen to {sq}. Now the attack has real teeth.",
+            f"The queen joins in on {sq}. Things are getting dangerous.",
+            f"Queen infiltrates to {sq}. The defense is sweating.",
+        ])
+    if ptype == chess.PAWN:
+        return "PAWN BREAK", pick([
+            f"{san}. Grabbing space, asking questions.",
+            f"Pawn to {sq}, a little lever to crack the position.",
+            f"{san}. He is not waiting around.",
+        ])
+    return "KING SAFETY", pick([
+        f"King steps to {sq}. Safety first.",
+        f"The king walks to {sq}, dodging the checks.",
+        f"King to {sq}. Quiet move, but a smart one.",
+    ])
 
 def get_game_of_the_day(requested_id=None):
     """
@@ -592,8 +613,14 @@ def parse_game_moves(game_info):
     black_player = game_info.get("black_name", "Black")
     climax_ply = game_info.get("climax_ply", 30)
 
+    mainline = list(game.mainline_moves())
+    total = len(mainline)
+    pgn_str = game_info.get("pgn", "")
+    sign = 1 if "1-0" in pgn_str else (-1 if "0-1" in pgn_str else 0)
+    swing_start = max(0.25, (climax_ply - 6) / max(1, total))
+
     moves = []
-    for i, m in enumerate(game.mainline_moves(), 1):
+    for i, m in enumerate(mainline, 1):
         san = board.san(m)
         uci = m.uci()
         player = "White" if board.turn == chess.WHITE else "Black"
@@ -603,16 +630,17 @@ def parse_game_moves(game_info):
         strat, dial = classify_move_strategy(board, m, san, i, game_info)
         board.push(m)
 
-        # Realistic dynamic eval score
-        is_white_win = "1-0" in game_info.get("pgn", "")
-        if i < climax_ply - 4:
-            eval_val = "+0.3" if player == "White" else "-0.3"
-        elif i < climax_ply:
-            eval_val = "+1.8" if is_white_win else "-1.8"
-        elif i < climax_ply + 6:
-            eval_val = "+4.5" if is_white_win else "-4.5"
+        # Organic eval: quiet opening drift, ramping swing after the turning point
+        t = i / max(1, total)
+        if sign == 0 or t < swing_start:
+            val = 0.35 * math.sin(i * 0.9) + 0.15 * math.sin(i * 2.3)
         else:
-            eval_val = "+8.0" if is_white_win else "-8.0"
+            ramp = min(1.0, (t - swing_start) / max(0.05, 1.0 - swing_start))
+            val = sign * (0.3 + 8.7 * ramp ** 1.6) + 0.2 * math.sin(i * 1.3)
+        if '#' in san:
+            eval_val = "#1" if sign >= 0 else "#-1"
+        else:
+            eval_val = f"{val:+.1f}"
 
         moves.append({
             "ply": i,

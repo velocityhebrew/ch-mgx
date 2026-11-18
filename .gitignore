@@ -8,7 +8,13 @@ engine/stockfish/*.zip
 
 # Media caches
 voiceover/*.mp3
+voiceover/*.wav
+voiceover_test/
 recordings/*.mp4
+recordings/*.png
+recordings/*.srt
+recordings/list_*.txt
+recordings/concat_list.txt
 recordings/seg_*.mp4
 recordings/frames/*.png
 

@@ -7,7 +7,7 @@ on:
   workflow_dispatch: # Allows manual trigger with 1 click
     inputs:
       upload_youtube:
-        description: 'Upload to YouTube? (auto = alternate days, true = force yes, false = force skip)'
+        description: 'Upload to YouTube? (auto = every day, true = force yes, false = force skip)'
         required: false
         default: 'auto'
         type: choice
@@ -40,26 +40,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: 📅 Check YouTube upload schedule (Alternate days)
+      - name: 📅 Check YouTube upload schedule (Daily)
         id: yt_schedule
         run: |
           INPUT_CHOICE="${{ github.event.inputs.upload_youtube }}"
-          if [ "$INPUT_CHOICE" = "true" ]; then
-            echo "should_upload=true" >> "$GITHUB_OUTPUT"
-            echo "Manual override: YouTube upload forced to TRUE."
-          elif [ "$INPUT_CHOICE" = "false" ]; then
+          if [ "$INPUT_CHOICE" = "false" ]; then
             echo "should_upload=false" >> "$GITHUB_OUTPUT"
             echo "Manual override: YouTube upload forced to FALSE."
           else
-            DAY_OF_YEAR=$(date -u +%-j)
-            echo "Current UTC Day of Year: $DAY_OF_YEAR"
-            if [ $(( 10#$DAY_OF_YEAR % 2 )) -ne 0 ]; then
-              echo "should_upload=true" >> "$GITHUB_OUTPUT"
-              echo "✅ Today is a scheduled YouTube upload day (Day $DAY_OF_YEAR)."
-            else
-              echo "should_upload=false" >> "$GITHUB_OUTPUT"
-              echo "⏸️ Today is an alternate off-day for YouTube (Day $DAY_OF_YEAR). Skipping YouTube upload (Facebook will still upload)."
-            fi
+            echo "should_upload=true" >> "$GITHUB_OUTPUT"
+            echo "✅ Daily schedule: YouTube upload enabled."
           fi
 
       - name: Run Daily Video & Thumbnail Generator
