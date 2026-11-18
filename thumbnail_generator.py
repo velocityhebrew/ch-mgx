@@ -7,7 +7,7 @@ Enhanced with dynamic AI hooks, badges, and player names.
 import os
 import chess
 from PIL import Image, ImageDraw, ImageFont
-from board_renderer import ChessBoardRenderer, find_font
+from board_renderer import ChessBoardRenderer, find_font, wrap_text
 from grandmaster_database import get_game_of_the_day, parse_game_moves
 from commentary_ai import generate_thumbnail_copy
 
@@ -56,12 +56,13 @@ def generate_youtube_thumbnail(game_info=None):
         black_clock="06:34",
         active_player=climax_move["player"],
         eval_score=climax_move["eval"],
-        subtitle_text=climax_move["dialogue"],
+        subtitle_text="",
         strategy_name=climax_move["strategy"],
         white_name=game_info.get("white_name", "White"),
         black_name=game_info.get("black_name", "Black"),
         white_title=f"Grandmaster  •  {game_info.get('white_rating', '2800')}  •  White",
-        black_title=f"Grandmaster  •  {game_info.get('black_rating', '2800')}  •  Black"
+        black_title=f"Grandmaster  •  {game_info.get('black_rating', '2800')}  •  Black",
+        event_name=""
     )
 
     draw = ImageDraw.Draw(frame)
@@ -81,13 +82,15 @@ def generate_youtube_thumbnail(game_info=None):
                            radius=12, fill=(232, 184, 66), outline=(255, 255, 255), width=3)
     draw.text((badge_x + 22, badge_y + 12), badge_text, font=badge_font, fill=(15, 18, 24))
 
-    # Bottom callout replaces the commentary banner
+    # Bottom callout replaces the commentary banner (wraps, never shrinks)
     draw.rounded_rectangle([48, 950, 1872, 1054], radius=16, fill=(232, 184, 66))
-    ct = callout_text
-    while draw.textlength(ct, font=callout_font) > 1760 and callout_font.size > 20:
-        callout_font = find_font("bold", callout_font.size - 2)
-    cw = draw.textlength(ct, font=callout_font)
-    draw.text((960 - cw / 2, 1002 - callout_font.size / 2), ct, font=callout_font, fill=(15, 18, 24))
+    lines = wrap_text(draw, callout_text, callout_font, 1760)[:2]
+    line_h = 44
+    ty = 950 + (104 - line_h * len(lines)) // 2 + 4
+    for ln in lines:
+        cw = draw.textlength(ln, font=callout_font)
+        draw.text((960 - cw / 2, ty), ln, font=callout_font, fill=(15, 18, 24))
+        ty += line_h
 
     frame.save(THUMBNAIL_PATH)
     print(f"[SUCCESS] YouTube thumbnail generated at: {THUMBNAIL_PATH}")

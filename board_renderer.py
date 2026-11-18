@@ -113,7 +113,7 @@ class ChessBoardRenderer:
         self.sq_size = 104
         self.board_size = self.sq_size * 8
         self.board_x = 1040
-        self.board_y = 92
+        self.board_y = 80
         self.sidebar_x = 48
         self.sidebar_w = 900
 
@@ -275,8 +275,9 @@ class ChessBoardRenderer:
         self.paste_piece(img, "bN", 58, 31, size=30)
         draw.text((92, 16), "CHESS MAGIX", font=self.brand_font, fill=TEXT_HI)
         bx = 92 + draw.textlength("CHESS MAGIX", font=self.brand_font) + 24
-        draw.text((bx, 21), "|", font=self.header_font, fill=PANEL_EDGE)
-        draw.text((bx + 22, 21), event_name, font=self.header_font, fill=TEXT_LO)
+        if event_name:
+            draw.text((bx, 21), "|", font=self.header_font, fill=PANEL_EDGE)
+            draw.text((bx + 22, 21), event_name, font=self.header_font, fill=TEXT_LO)
 
         if move_label:
             tw = draw.textlength(move_label, font=self.pill_font)
@@ -473,10 +474,10 @@ class ChessBoardRenderer:
 
     # ------------------------------------------------------------------
     def _subtitle_banner(self, img, draw, text, active_player, white_name, black_name):
-        y, h = 950, 104
         x0, x1 = 48, self.width - 48
-        self._panel(draw, [x0, y, x1, y + h], fill=(14, 18, 26), outline=PANEL_EDGE, radius=16, width=2)
+        bottom = 1072
         if not text:
+            self._panel(draw, [x0, 950, x1, 1054], fill=(14, 18, 26), outline=PANEL_EDGE, radius=16, width=2)
             return
         accent = GOLD if active_player == "White" else TEAL
         speaker = (white_name if active_player == "White" else black_name)
@@ -485,21 +486,24 @@ class ChessBoardRenderer:
             speaker = speaker.split()[-1]
         sw = draw.textlength(speaker.upper(), font=self.sub_bold)
         chip_w = int(sw) + 36
-        draw.rounded_rectangle([x0 + 24, y + 20, x0 + 24 + chip_w, y + 56], radius=10, fill=accent)
-        draw.text((x0 + 42, y + 26), speaker.upper(), font=self.sub_bold, fill=(15, 18, 24))
 
+        # Fixed large font; long phrases wrap to more lines instead of shrinking
+        font = self.sub_font
+        line_h = 36
         tx = x0 + 24 + chip_w + 26
         max_w = x1 - 32 - tx
-        font = self.sub_font
         lines = wrap_text(draw, f"“{text}”", font, max_w)
-        if len(lines) > 2:
-            font = find_font("regular", 23)
-            lines = wrap_text(draw, f"“{text}”", font, max_w)[:2]
-            if len(lines) == 2:
-                lines[1] = lines[1].rstrip('”') + '…”'
-        line_h = 36 if font == self.sub_font else 31
-        total_h = line_h * len(lines)
-        ty = y + (h - total_h) // 2 + 2
+        if len(lines) > 3:
+            lines = lines[:3]
+            lines[2] = lines[2].rstrip('”') + '…”'
+        n = len(lines)
+        h = 24 + line_h * n
+        y = bottom - h
+        self._panel(draw, [x0, y, x1, bottom], fill=(14, 18, 26), outline=PANEL_EDGE, radius=16, width=2)
+        chip_y = y + (h - 36) // 2
+        draw.rounded_rectangle([x0 + 24, chip_y, x0 + 24 + chip_w, chip_y + 36], radius=10, fill=accent)
+        draw.text((x0 + 42, chip_y + 6), speaker.upper(), font=self.sub_bold, fill=(15, 18, 24))
+        ty = y + 12
         for ln in lines:
             draw.text((tx, ty), ln, font=font, fill=TEXT_HI)
             ty += line_h
