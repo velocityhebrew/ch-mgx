@@ -5,13 +5,20 @@ from .upload_facebook import upload_to_facebook
 # Note: Instagram publishing is disabled to prevent unnecessary Graph API calls and rate-limiting.
 # Publishing exclusively to YouTube and Facebook.
 
-def publish_all(video_path, thumbnail_path=None, title=None, description=None, tags=None):
+def publish_all(video_path, thumbnail_path=None, title=None, description=None, tags=None, srt_path=None):
     """Orchestrates multi-platform publishing to YouTube, Facebook, and Instagram."""
     print("=" * 70)
     print("       MULTI-PLATFORM AUTOMATED SOCIAL BROADCAST")
     print("=" * 70)
 
     results = {}
+
+    if os.getenv("DRY_RUN", "").strip().lower() in ("true", "1", "yes"):
+        print("[publisher] DRY_RUN enabled — generation only, skipping all uploads.")
+        return {
+            "youtube": {"status": "dry_run"},
+            "facebook": {"status": "dry_run"},
+        }
 
     # 1. YouTube (with playlist & custom thumbnail)
     upload_yt_env = os.getenv("UPLOAD_YOUTUBE", "true").lower()
@@ -25,7 +32,8 @@ def publish_all(video_path, thumbnail_path=None, title=None, description=None, t
                 thumbnail_path=thumbnail_path,
                 title=title,
                 description=description,
-                tags=tags
+                tags=tags,
+                srt_path=srt_path,
             )
         except Exception as e:
             print(f"[publisher] YouTube error: {e}")

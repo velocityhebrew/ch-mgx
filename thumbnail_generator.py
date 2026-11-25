@@ -44,9 +44,27 @@ def generate_youtube_thumbnail(game_info=None):
     
     # Query AI for thumbnail hook & badges
     ai_copy = generate_thumbnail_copy(game_info)
-    top_hook = ai_copy.get("top_banner", f"STOCKFISH 19 (3600+ ELO) IMMORTAL BATTLE").upper()
-    badge_text = ai_copy.get("badge", game_info.get("climax_badge", "!! BRILLIANT MOVE")).upper()
-    callout_text = ai_copy.get("bottom_callout", game_info.get("climax_hook", "GREATEST MOVE IN CHESS HISTORY?!")).upper()
+
+    def has_plain_words(value):
+        cleaned = str(value).replace("!", "").replace("+", "").replace("#", "")
+        return any(len(w) >= 4 and w.isalpha() for w in cleaned.split())
+
+    def safe_text(value, fallback, limit):
+        if not isinstance(value, str) or not value.strip() or not has_plain_words(value):
+            value = fallback
+        return value.strip().upper()[:limit]
+
+    def display_name(name):
+        n = str(name).replace("GM ", "").split("&")[0].strip()
+        return n.upper()
+
+    top_hook = safe_text(
+        f"{display_name(game_info.get('white_name', 'White'))} VS {display_name(game_info.get('black_name', 'Black'))}",
+        "IMMORTAL GRANDMASTER BATTLE",
+        52,
+    )
+    badge_text = safe_text(ai_copy.get("badge"), game_info.get("climax_badge", "!! BRILLIANT MOVE"), 42)
+    callout_text = safe_text(ai_copy.get("bottom_callout"), game_info.get("climax_hook", "GREATEST MOVE IN CHESS HISTORY?!"), 90)
 
     frame = renderer.render_frame(
         board=board,
@@ -62,7 +80,9 @@ def generate_youtube_thumbnail(game_info=None):
         black_name=game_info.get("black_name", "Black"),
         white_title=f"Grandmaster  •  {game_info.get('white_rating', '2800')}  •  White",
         black_title=f"Grandmaster  •  {game_info.get('black_rating', '2800')}  •  Black",
-        event_name=""
+        event_name="",
+        progress=climax_ply / max(1, len(moves)),
+        show_replay_badge=False,
     )
 
     draw = ImageDraw.Draw(frame)
@@ -72,11 +92,16 @@ def generate_youtube_thumbnail(game_info=None):
     callout_font = find_font("bold", 36)
 
     # Top hook banner across the header (brand stays visible on the left)
-    draw.rounded_rectangle([400, 8, 1380, 56], radius=12, fill=(200, 30, 45))
-    draw.text((420, 15), top_hook[:52], font=impact_sub, fill=(255, 255, 255))
+    while draw.textlength(top_hook, font=impact_sub) > 1100 and impact_sub.size > 20:
+        impact_sub = find_font("bold", impact_sub.size - 2)
+    draw.rounded_rectangle([400, 8, 1560, 56], radius=12, fill=(200, 30, 45), outline=(255, 255, 255), width=2)
+    draw.text((420, 15), top_hook, font=impact_sub, fill=(255, 255, 255),
+              stroke_width=2, stroke_fill=(90, 0, 10))
 
     # Climax badge on the board's top-left corner
-    badge_w = min(560, draw.textlength(badge_text, font=badge_font) + 44)
+    while draw.textlength(badge_text, font=badge_font) > 560 - 44 and badge_font.size > 20:
+        badge_font = find_font("bold", badge_font.size - 2)
+    badge_w = draw.textlength(badge_text, font=badge_font) + 44
     badge_x, badge_y = 1052, 104
     draw.rounded_rectangle([badge_x, badge_y, badge_x + badge_w, badge_y + 62],
                            radius=12, fill=(232, 184, 66), outline=(255, 255, 255), width=3)

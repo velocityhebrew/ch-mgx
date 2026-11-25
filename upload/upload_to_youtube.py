@@ -1,9 +1,12 @@
 import os
 import json
+import subprocess
+import time
 from pathlib import Path
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
 
 # Fallback local token locations
@@ -111,6 +114,45 @@ def add_video_to_playlist(youtube, video_id, playlist_title=DEFAULT_PLAYLIST_TIT
     except Exception as e:
         print(f"[youtube] ⚠️ Playlist notice: {e}")
 
+def probe_duration(path):
+    try:
+        out = subprocess.check_output(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+             "-of", "default=noprint_wrappers=1:nokey=1", str(path)],
+            text=True,
+        )
+        return float(out.strip())
+    except Exception:
+        return None
+
+
+def upload_captions(youtube, video_id, srt_path):
+    """Upload the generated SRT as English closed captions (retries while YouTube processes)."""
+    if not srt_path or not os.path.exists(srt_path):
+        return
+    print(f"[youtube] Uploading captions: {srt_path}...")
+    last_err = None
+    for attempt in range(3):
+        try:
+            youtube.captions().insert(
+                part="snippet",
+                body={"snippet": {
+                    "videoId": video_id,
+                    "language": "en",
+                    "name": "English",
+                    "isDraft": False,
+                }},
+                media_body=MediaFileUpload(str(srt_path), mimetype="application/octet-stream", resumable=False),
+            ).execute()
+            print("[youtube] ✅ Captions uploaded successfully!")
+            return
+        except Exception as e:
+            last_err = e
+            if attempt < 2:
+                time.sleep(6)
+    print(f"[youtube] ⚠️ Caption upload notice: {last_err}")
+
+
 def sanitize_youtube_title(raw_title, max_len=95):
     """Sanitizes title to conform strictly to YouTube API rules (<100 chars, no angle brackets)."""
     if not raw_title:
@@ -121,8 +163,20 @@ def sanitize_youtube_title(raw_title, max_len=95):
         t = t[:max_len-3].rstrip() + "..."
     return t
 
-def upload_to_youtube(video_path, thumbnail_path=None, title=None, description=None, tags=None, playlist_title=DEFAULT_PLAYLIST_TITLE, privacy_status="public"):
-    """Full YouTube upload with thumbnail and playlist insertion."""
+def _insert_video(youtube, body, video_path):
+    media = MediaFileUpload(str(video_path), chunksize=-1, resumable=True, mimetype="video/mp4")
+    req = youtube.videos().insert(part=",".join(body.keys()), body=body, media_body=media)
+    resp = None
+    while resp is None:
+        status, resp = req.next_chunk()
+        if status:
+            print(f"  -> Upload progress: {int(status.progress() * 100)}%")
+    return resp
+
+
+def upload_to_youtube(video_path, thumbnail_path=None, title=None, description=None, tags=None,
+                      playlist_title=DEFAULT_PLAYLIST_TITLE, privacy_status="public", srt_path=None):
+    """Full YouTube upload with custom thumbnail, captions, and playlist insertion."""
     print("\n" + "=" * 60)
     print("▶️ YOUTUBE UPLOAD INITIATED")
     print("=" * 60)
@@ -144,28 +198,39 @@ def upload_to_youtube(video_path, thumbnail_path=None, title=None, description=N
             "Brilliant Move", "Magnus Carlsen", "Hikaru Nakamura", "Chess.com"
         ]
 
+    duration = probe_duration(video_path)
+    if duration is not None:
+        print(f"[youtube] Video duration: {duration / 60:.1f} minutes ({duration:.0f}s)")
+        if duration < 120:
+            print("[youtube] ⚠️ WARNING: video is under 2 minutes — check the generator output.")
+
     body = {
         "snippet": {
             "title": safe_title,
             "description": description or "Daily Grandmaster Chess Match generated with Stockfish 19.",
             "tags": tags,
-            "categoryId": "20" # Gaming
+            "categoryId": "20",  # Gaming
+            "defaultLanguage": "en",
+            "defaultAudioLanguage": "en",
         },
         "status": {
             "privacyStatus": privacy_status,
-            "selfDeclaredMadeForKids": False
+            "selfDeclaredMadeForKids": False,
+            # AI voice + generated visuals: disclose synthetic/altered content.
+            "containsSyntheticMedia": True,
         }
     }
 
-    media = MediaFileUpload(str(video_path), chunksize=-1, resumable=True, mimetype="video/mp4")
     print(f"[youtube] Uploading: {title} ({os.path.getsize(video_path) // (1024*1024)} MB)...")
-
-    req = youtube.videos().insert(part=",".join(body.keys()), body=body, media_body=media)
-    resp = None
-    while resp is None:
-        status, resp = req.next_chunk()
-        if status:
-            print(f"  -> Upload progress: {int(status.progress() * 100)}%")
+    try:
+        resp = _insert_video(youtube, body, video_path)
+    except HttpError as e:
+        if "containsSyntheticMedia" in str(e):
+            print("[youtube] Retrying without synthetic-media flag (API rejected the field)...")
+            body["status"].pop("containsSyntheticMedia", None)
+            resp = _insert_video(youtube, body, video_path)
+        else:
+            raise
 
     video_id = resp.get("id")
     video_url = f"https://youtu.be/{video_id}"
@@ -182,6 +247,9 @@ def upload_to_youtube(video_path, thumbnail_path=None, title=None, description=N
             print("[youtube] ✅ Custom thumbnail set successfully!")
         except Exception as e:
             print(f"[youtube] ⚠️ Thumbnail error: {e}")
+
+    # Upload English closed captions
+    upload_captions(youtube, video_id, srt_path)
 
     # Add to Playlist
     add_video_to_playlist(youtube, video_id, playlist_title)

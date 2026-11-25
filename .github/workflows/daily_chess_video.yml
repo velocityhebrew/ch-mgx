@@ -15,6 +15,11 @@ on:
           - auto
           - 'true'
           - 'false'
+      dry_run:
+        description: 'Generate only (skip YouTube and Facebook uploads)?'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   generate_and_publish:
@@ -55,6 +60,7 @@ jobs:
       - name: Run Daily Video & Thumbnail Generator
         env:
           UPLOAD_YOUTUBE: ${{ steps.yt_schedule.outputs.should_upload }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
@@ -72,3 +78,4 @@ jobs:
             recordings/*.mp4
             recordings/*.png
             recordings/*.srt
+            recordings/chapters.json

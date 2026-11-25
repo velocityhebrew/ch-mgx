@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import asyncio
 import datetime
@@ -10,6 +11,16 @@ from commentary_ai import select_daily_grandmaster_game, generate_game_metadata
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 RECORDINGS_DIR = os.path.join(BASE_DIR, "recordings")
+
+
+def format_chapter_time(seconds):
+    total = max(0, int(seconds))
+    return f"{total // 60}:{total % 60:02d}"
+
+
+def hashtag(name):
+    return re.sub(r"[^A-Za-z0-9]", "", str(name).replace("GM ", ""))
+
 
 def run_daily_pipeline(requested_game_id=None):
     today_str = datetime.date.today().strftime("%B %d, %Y")
@@ -36,40 +47,82 @@ def run_daily_pipeline(requested_game_id=None):
     print("\n[AI METADATA] Generating dynamic YouTube/Facebook metadata via Pollinations AI...")
     ai_meta = generate_game_metadata(game_info, today_str)
     title = ai_meta.get("title", f"{white_player} vs {black_player}: {theme} [{today_str}]")
-    hook = ai_meta.get("hook_summary", f"Relive the historic battle between {white_player} and {black_player} at {event}.")
-    tags = ai_meta.get("tags", [white_player, black_player, "Chess", "Grandmaster", opening, "Brilliant Move", "Stockfish"])
+    hook = ai_meta.get("hook_summary", "")
+    if not isinstance(hook, str) or not hook.strip():
+        hook = f"Relive the historic battle between {white_player} and {black_player} at {event}."
+    game_info["story_summary"] = hook.strip()
+
+    raw_tags = ai_meta.get("tags", [])
+    if isinstance(raw_tags, str):
+        raw_tags = [t.strip() for t in raw_tags.split(",") if t.strip()]
+    elif not isinstance(raw_tags, list):
+        raw_tags = []
+    tags = raw_tags or [white_player, black_player, "Chess", "Grandmaster", opening, "Brilliant Move", "Stockfish"]
+    tags = list(dict.fromkeys(
+        [str(t) for t in tags] +
+        ["chess full game", "grandmaster chess", "chess analysis", "chess history",
+         "brilliant move", "chess magix", white_player, black_player, opening]
+    ))
+    # YouTube rejects tag sets over 500 characters; keep a safe margin.
+    trimmed, used = [], 0
+    for tag in tags:
+        tag = str(tag).strip()
+        if not tag:
+            continue
+        if used + len(tag) + 1 > 480:
+            break
+        trimmed.append(tag)
+        used += len(tag) + 1
+    tags = trimmed
 
     print(f"Title: {title}")
 
-    # 3. Generate Grandmaster Match Video (1080p 60FPS)
+    # 3. Generate Grandmaster Match Video (1080p 60FPS, full game)
     print("\n[STEP 1/3] Generating today's Grandmaster Chess Video...")
-    asyncio.run(generate_all(game_info))
+    render_result = asyncio.run(generate_all(game_info))
+    video_path = render_result["video_path"]
+    srt_path = render_result.get("subtitles") or os.path.join(RECORDINGS_DIR, "chess_subtitles.srt")
+    chapters = render_result.get("chapters", [])
+    print(f"[INFO] Full game rendered: {render_result.get('duration', 0):.1f}s, {len(chapters)} chapters")
 
     # 4. Generate High-CTR YouTube Thumbnail
     print("\n[STEP 2/3] Generating High-CTR Thumbnail...")
     thumb_path = generate_youtube_thumbnail(game_info)
 
     # 5. Multi-Platform Broadcast (YouTube & Facebook)
-    video_path = os.path.join(RECORDINGS_DIR, "grandmaster_chess_battle.mp4")
     print("\n[STEP 3/3] Broadcasting to Social Channels...")
+    if not os.path.exists(video_path) or os.path.getsize(video_path) < 1_000_000:
+        raise RuntimeError(f"Video file is missing or suspiciously small: {video_path}")
+
+    chapter_lines = "\n".join(
+        f"{format_chapter_time(ch.get('time', 0))} {ch.get('title', 'Highlights')}"
+        for ch in chapters
+    )
 
     description = f"""{title}
 
 {hook}
 
-Match Information:
+⏱ CHAPTERS
+{chapter_lines}
+
+MATCH INFORMATION
 * White: {white_player} ({game_info.get('white_rating', '2800')})
 * Black: {black_player} ({game_info.get('black_rating', '2800')})
 * Event: {event}
 * Opening: {opening}
 * Theme: {theme}
+* Result: {game_info.get('pgn', '').strip().split()[-1] if game_info.get('pgn') else 'Classic'}
 
-Full PGN & Moves:
+🔔 Subscribe for a new grandmaster masterpiece every day.
+💬 Comment your favorite move below.
+
+FULL PGN & MOVES
 {game_info.get('pgn', '')}
 
-Analyzed by Stockfish 19 & Voiced by Grandmaster AI with real-time tactical evaluation, board annotations, and live clocks.
+Analyzed with Stockfish and voiced by the Chess Magix broadcast team, with real-time tactical evaluation, board annotations, and live clocks.
 
-#Chess #Grandmaster #{white_player.replace(' ', '')} #{black_player.replace(' ', '')} #ChessTactics #ChessAI #BrilliantMove #ChessMagix
+#Chess #Grandmaster #{hashtag(white_player)} #{hashtag(black_player)} #ChessTactics #ChessAI #BrilliantMove #ChessMagix
 """
 
     results = publish_all(
@@ -77,7 +130,8 @@ Analyzed by Stockfish 19 & Voiced by Grandmaster AI with real-time tactical eval
         thumbnail_path=thumb_path,
         title=title,
         description=description,
-        tags=tags
+        tags=tags,
+        srt_path=srt_path,
     )
     print("\n" + "=" * 70)
     print("DAILY PIPELINE COMPLETE!")

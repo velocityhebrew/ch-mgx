@@ -13,6 +13,7 @@ voiceover_test/
 recordings/*.mp4
 recordings/*.png
 recordings/*.srt
+recordings/*.json
 recordings/list_*.txt
 recordings/concat_list.txt
 recordings/seg_*.mp4

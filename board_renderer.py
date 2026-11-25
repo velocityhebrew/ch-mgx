@@ -209,15 +209,26 @@ class ChessBoardRenderer:
     def _draw_captured_row(self, img, draw, x, y, board, capturer_color):
         missing = self._captured(board, capturer_color)
         prefix = 'b' if capturer_color == chess.WHITE else 'w'
-        cx = x
-        for pt in missing[:10]:
-            sym = prefix + chess.piece_symbol(pt).upper()
-            self.paste_piece(img, sym, cx + 11, y + 11, size=22)
-            cx += 19
         my_val = sum(PIECE_VALUES[p] for p in missing)
         opp_val = sum(PIECE_VALUES[p] for p in self._captured(board, not capturer_color))
-        if my_val > opp_val:
-            draw.text((cx + 8, y + 1), f"+{my_val - opp_val}", font=self.mat_font, fill=TEXT_LO)
+        diff = my_val - opp_val
+        if diff > 0:
+            label, color = f"+{diff}", GREEN_OK
+        elif diff < 0:
+            label, color = f"{diff}", RED_BAD
+        else:
+            label, color = "EVEN", TEXT_LO
+
+        shown = missing[:10]
+        label_w = draw.textlength(label, font=self.mat_font)
+        chip_w = 12 + len(shown) * 22 + 14 + label_w + 12
+        draw.rounded_rectangle([x - 4, y - 3, x - 4 + chip_w, y + 27], radius=9, fill=(28, 35, 48))
+        cx = x + 3
+        for pt in shown:
+            sym = prefix + chess.piece_symbol(pt).upper()
+            self.paste_piece(img, sym, cx + 12, y + 12, size=25)
+            cx += 22
+        draw.text((cx + 12, y + 3), label, font=self.mat_font, fill=color)
 
     # ------------------------------------------------------------------
     # Player card
@@ -261,7 +272,9 @@ class ChessBoardRenderer:
                      white_name="White", black_name="Black",
                      white_title="Grandmaster", black_title="Grandmaster",
                      hide_piece_sq=None, show_arrow=True, move_label="",
-                     event_name="Grandmaster Classic"):
+                     event_name="Grandmaster Classic", progress=None,
+                     last_move_san="", subtitle_speaker_name=None,
+                     subtitle_accent=None, show_replay_badge=True):
         if move_history is None:
             move_history = []
 
@@ -270,7 +283,13 @@ class ChessBoardRenderer:
 
         # --- Header ---
         draw.rectangle([0, 0, self.width, 62], fill=(9, 12, 18))
-        draw.rectangle([0, 62, self.width, 64], fill=GOLD)
+        draw.rectangle([0, 62, self.width, 65], fill=(31, 38, 51))
+        if progress is not None:
+            p = max(0.0, min(1.0, float(progress)))
+            if p > 0:
+                draw.rectangle([0, 62, int(self.width * p), 65], fill=GOLD)
+        else:
+            draw.rectangle([0, 62, self.width, 65], fill=GOLD)
         draw.rounded_rectangle([40, 13, 76, 49], radius=8, fill=GOLD)
         self.paste_piece(img, "bN", 58, 31, size=30)
         draw.text((92, 16), "CHESS MAGIX", font=self.brand_font, fill=TEXT_HI)
@@ -284,11 +303,12 @@ class ChessBoardRenderer:
             draw.rounded_rectangle([self.width - 60 - tw - 28, 16, self.width - 40, 48],
                                    radius=16, outline=PANEL_EDGE, width=2)
             draw.text((self.width - 60 - tw - 14, 22), move_label, font=self.pill_font, fill=TEXT_LO)
-        replay = "CLASSIC REPLAY"
-        tw = draw.textlength(replay, font=self.pill_font)
-        rx = self.width - 60 - tw - 28 - (draw.textlength(move_label, font=self.pill_font) + 42 if move_label else 0) - 16
-        draw.rounded_rectangle([rx - tw - 28, 16, rx, 48], radius=16, fill=(20, 42, 40), outline=TEAL, width=2)
-        draw.text((rx - tw - 14, 22), replay, font=self.pill_font, fill=TEAL)
+        if show_replay_badge:
+            replay = "CLASSIC REPLAY"
+            tw = draw.textlength(replay, font=self.pill_font)
+            rx = self.width - 60 - tw - 28 - (draw.textlength(move_label, font=self.pill_font) + 42 if move_label else 0) - 16
+            draw.rounded_rectangle([rx - tw - 28, 16, rx, 48], radius=16, fill=(20, 42, 40), outline=TEAL, width=2)
+            draw.text((rx - tw - 14, 22), replay, font=self.pill_font, fill=TEAL)
 
         # --- Player cards ---
         self._player_card(img, draw, self.board_y, black_name, black_title, black_clock,
@@ -324,6 +344,18 @@ class ChessBoardRenderer:
         draw.text((cols[1], log_y + 11), "WHITE", font=self.log_head_font, fill=GOLD_SOFT)
         draw.text((cols[2], log_y + 11), "BLACK", font=self.log_head_font, fill=TEAL)
         draw.text((cols[3], log_y + 11), "EVAL", font=self.log_head_font, fill=TEXT_LO)
+
+        if not move_history:
+            msg = "THE STAGE IS SET"
+            mfont = find_font("bold", 30)
+            tw = draw.textlength(msg, font=mfont)
+            draw.text((self.sidebar_x + (self.sidebar_w - tw) / 2, log_y + 150),
+                      msg, font=mfont, fill=(52, 64, 84))
+            msg2 = "The first move is coming up"
+            m2 = find_font("regular", 20)
+            tw2 = draw.textlength(msg2, font=m2)
+            draw.text((self.sidebar_x + (self.sidebar_w - tw2) / 2, log_y + 196),
+                      msg2, font=m2, fill=(66, 78, 98))
 
         row_h = 38
         max_rows = (log_bottom - log_y - 52) // row_h
@@ -361,9 +393,12 @@ class ChessBoardRenderer:
 
         # --- Board ---
         self._draw_board(img, draw, board, last_move, hide_piece_sq, show_arrow)
+        if last_move and last_move_san:
+            self._move_tag(img, draw, board, last_move, last_move_san)
 
         # --- Subtitle banner ---
-        self._subtitle_banner(img, draw, subtitle_text, active_player, white_name, black_name)
+        self._subtitle_banner(img, draw, subtitle_text, active_player, white_name, black_name,
+                              speaker_name=subtitle_speaker_name, accent=subtitle_accent)
 
         return img.convert("RGB")
 
@@ -379,17 +414,26 @@ class ChessBoardRenderer:
             draw.rounded_rectangle([x, y + split, x + w, y + h], radius=8, fill=(242, 244, 248))
             draw.rectangle([x, y + split, x + w, y + split + 10], fill=(242, 244, 248))
         draw.rounded_rectangle([x, y, x + w, y + h], radius=8, outline=PANEL_EDGE, width=2)
+        draw.rectangle([x + 5, y + h // 2, x + w - 5, y + h // 2 + 1], fill=(96, 108, 128))
         draw.rectangle([x, y + split - 1, x + w, y + split + 1], fill=GOLD)
 
+        # Board-side advantage tags
+        bt = "B"
+        wt = "W"
+        draw.text((x + (w - draw.textlength(bt, font=self.eval_bar_font)) / 2, y + 7),
+                  bt, font=self.eval_bar_font, fill=(205, 214, 228))
+        draw.text((x + (w - draw.textlength(wt, font=self.eval_bar_font)) / 2, y + h - 26),
+                  wt, font=self.eval_bar_font, fill=(20, 24, 30))
+
+        # Numeric evaluation pinned near the split line
         label = str(eval_score)
         lw = draw.textlength(label, font=self.eval_bar_font)
-        if white_ratio >= 0.5:
-            ly = y + h - 26
-            fg = (20, 24, 30)
-        else:
-            ly = y + 8
-            fg = (235, 240, 248)
-        draw.text((x + (w - lw) / 2, ly), label, font=self.eval_bar_font, fill=fg)
+        chip_w, chip_h = lw + 18, 24
+        chip_x = x + (w - chip_w) / 2
+        chip_y = max(y + 28, min(y + h - chip_h - 28, y + split - chip_h / 2))
+        draw.rounded_rectangle([chip_x, chip_y, chip_x + chip_w, chip_y + chip_h],
+                               radius=7, fill=(10, 14, 20), outline=(70, 82, 102), width=1)
+        draw.text((chip_x + 9, chip_y + 4), label, font=self.eval_bar_font, fill=TEXT_HI)
 
     # ------------------------------------------------------------------
     def _draw_board(self, img, draw, board, last_move, hide_piece_sq, show_arrow):
@@ -473,14 +517,40 @@ class ChessBoardRenderer:
         img.alpha_composite(ov)
 
     # ------------------------------------------------------------------
-    def _subtitle_banner(self, img, draw, text, active_player, white_name, black_name):
+    def _move_tag(self, img, draw, board, move, san):
+        """Broadcast-style notation pill pinned to the destination square."""
+        cx, cy = self.square_center(move.to_square)
+        label = f"{san}  CHECKMATE" if board.is_checkmate() else san
+        tw = draw.textlength(label, font=self.pill_font)
+        w, h = tw + 30, 32
+        x0 = cx - w / 2
+        y0 = cy - self.sq_size / 2 - h - 8
+        if y0 < self.board_y + 4:
+            y0 = cy + self.sq_size / 2 + 8
+        x0 = max(self.board_x + 6, min(x0, self.board_x + self.board_size - w - 6))
+        y0 = max(self.board_y + 4, min(y0, self.board_y + self.board_size - h - 4))
+        accent = GOLD_SOFT if board.is_checkmate() else GOLD
+        draw.rounded_rectangle([x0 + 2, y0 + 2, x0 + w + 2, y0 + h + 2], radius=10, fill=(6, 9, 14))
+        draw.rounded_rectangle([x0, y0, x0 + w, y0 + h], radius=10,
+                               fill=(14, 18, 26), outline=accent, width=2)
+        draw.text((x0 + 15, y0 + 7), label, font=self.pill_font, fill=accent)
+        if board.is_checkmate():
+            self._glow(img, [x0, y0, x0 + w, y0 + h], GOLD, radius=10, spread=6, alpha=90)
+
+    # ------------------------------------------------------------------
+    def _subtitle_banner(self, img, draw, text, active_player, white_name, black_name,
+                         speaker_name=None, accent=None):
         x0, x1 = 48, self.width - 48
         bottom = 1072
         if not text:
             self._panel(draw, [x0, 950, x1, 1054], fill=(14, 18, 26), outline=PANEL_EDGE, radius=16, width=2)
             return
-        accent = GOLD if active_player == "White" else TEAL
-        speaker = (white_name if active_player == "White" else black_name)
+        if accent is None:
+            accent = GOLD if (speaker_name is not None or active_player == "White") else TEAL
+        if speaker_name is not None:
+            speaker = speaker_name
+        else:
+            speaker = (white_name if active_player == "White" else black_name)
         speaker = speaker.replace("GM ", "").split("&")[0].strip()
         if len(speaker) > 18:
             speaker = speaker.split()[-1]
@@ -572,14 +642,22 @@ class ChessBoardRenderer:
         tw = draw.textlength(vs, font=vfont)
         draw.text((cx - tw / 2, y0 + card_h // 2 - 30), vs, font=vfont, fill=GOLD)
 
+        badge = game_info.get("climax_badge", "")
+        if badge:
+            bfont = find_font("bold", 24)
+            bw = draw.textlength(badge, font=bfont)
+            draw.rounded_rectangle([cx - bw / 2 - 24, 728, cx + bw / 2 + 24, 776],
+                                   radius=24, fill=(48, 38, 18), outline=GOLD, width=2)
+            draw.text((cx - bw / 2, 740), badge, font=bfont, fill=GOLD_SOFT)
+
         hook = game_info.get("climax_hook", "A LEGENDARY BATTLE")
         hfont = find_font("bold", 34)
         while draw.textlength(hook, font=hfont) > self.width - 240 and hfont.size > 22:
             hfont = find_font("bold", hfont.size - 2)
         tw = draw.textlength(hook, font=hfont)
-        draw.text((cx - tw / 2, 800), hook, font=hfont, fill=GOLD_SOFT)
+        draw.text((cx - tw / 2, 810), hook, font=hfont, fill=GOLD_SOFT)
 
-        pill = "DAILY GRANDMASTER BATTLES  •  SUBSCRIBE"
+        pill = "WATCH TILL THE END  •  SUBSCRIBE"
         tw = draw.textlength(pill, font=self.intro_small_font)
         draw.rounded_rectangle([cx - tw / 2 - 30, 900, cx + tw / 2 + 30, 952], radius=26,
                                outline=GOLD, width=2)
@@ -616,12 +694,16 @@ class ChessBoardRenderer:
         self.paste_piece(img, "wK", cx - 120, 650, size=110)
         self.paste_piece(img, "bK", cx + 120, 650, size=110)
 
-        cta = "SUBSCRIBE FOR DAILY GRANDMASTER BATTLES"
+        note = "COMMENT YOUR FAVORITE MOVE BELOW"
+        tw = draw.textlength(note, font=self.meta_font)
+        draw.text((cx - tw / 2, 724), note, font=self.meta_font, fill=TEXT_LO)
+
+        cta = "SUBSCRIBE  •  NEW GAME EVERY DAY"
         tw = draw.textlength(cta, font=self.intro_small_font)
         draw.rounded_rectangle([cx - tw / 2 - 36, 780, cx + tw / 2 + 36, 840], radius=30, fill=GOLD)
         draw.text((cx - tw / 2, 797), cta, font=self.intro_small_font, fill=(15, 18, 24))
 
         brand = "CHESS MAGIX"
         tw = draw.textlength(brand, font=self.brand_font)
-        draw.text((cx - tw / 2, 880), brand, font=self.brand_font, fill=TEXT_LO)
+        draw.text((cx - tw / 2, 900), brand, font=self.brand_font, fill=TEXT_LO)
         return img.convert("RGB")
