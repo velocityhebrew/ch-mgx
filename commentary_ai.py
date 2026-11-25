@@ -112,8 +112,8 @@ def generate_game_metadata(game_info, today_str):
         f"Core Theme: {theme}\n"
         f"Date: {today_str}\n\n"
         f"CRITICAL REQUIREMENTS:\n"
-        f"- Title must be sensational, strictly UNDER 85 characters, and use standard ASCII characters (e.g. '{white.split()[-1]} vs {black.split()[-1]}: {theme[:30]} [{today_str}]')\n"
-        f"- hook_summary: 2-3 sentences explaining the tactical brilliance\n"
+        f"- Title must be sensational, strictly UNDER 85 characters, use standard ASCII characters, and avoid revealing the final result (e.g. '{white.split()[-1]} vs {black.split()[-1]}: {theme[:30]} [{today_str}]')\n"
+        f"- hook_summary: 2-3 sentences that tease the tactical brilliance WITHOUT revealing the winner or final result\n"
         f"- tags: 10-15 relevant high-search tags"
     )
 

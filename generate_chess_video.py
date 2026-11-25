@@ -25,9 +25,9 @@ ANIM_FRAMES = int(ANIM_DUR * FPS)
 
 # Natural broadcast pacing: let every narrated move breathe. The full game is
 # always played out; nothing is compressed to hit a fixed runtime.
-MOVE_PAUSE = 1.0
-CLIMAX_BONUS = 1.2
-CHECKMATE_BONUS = 1.0
+MOVE_PAUSE = 1.4
+CLIMAX_BONUS = 1.6
+CHECKMATE_BONUS = 1.4
 
 
 def format_clock(seconds_left: float) -> str:
@@ -213,6 +213,7 @@ async def generate_all(game_info=None, max_moves=None):
         move_label="THE STAGE IS SET",
         event_name=game_info.get("event", "Grandmaster Classic"),
         progress=0.0, subtitle_speaker_name="Chess Magix",
+        show_replay_badge=False,
     )
     story_frame = os.path.join(FRAMES_DIR, "story.png")
     story_img.save(story_frame)
@@ -468,7 +469,9 @@ async def generate_all(game_info=None, max_moves=None):
     encode_still_segment(outro_frame, outro_audio, outro_dur, seg)
     segment_files.append(seg)
     add_subtitle(outro_start, outro_start + outro_dur, "Host", outro_text)
-    add_chapter(chapters, outro_start, "Result & Subscribe")
+    # Keep the final chapter valid: YouTube requires every chapter to be >=10s.
+    if outro_dur >= 10.0:
+        add_chapter(chapters, outro_start, "Result & Subscribe")
     total_elapsed += outro_dur
     print("[*] Outro card ready")
 
