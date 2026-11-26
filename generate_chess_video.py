@@ -123,6 +123,18 @@ def add_chapter(chapters, at, title, force=False, min_gap=10.0):
     chapters.append({"time": at, "title": title})
 
 
+def finalize_chapters(chapters):
+    """Sort chronologically and drop chapters that are less than 10s apart."""
+    ordered = sorted(chapters, key=lambda ch: ch["time"])
+    cleaned = []
+    for ch in ordered:
+        if not cleaned or ch["time"] - cleaned[-1]["time"] >= 10.0:
+            cleaned.append(ch)
+    if not cleaned or cleaned[0]["time"] > 0:
+        cleaned.insert(0, {"time": 0.0, "title": "Intro"})
+    return cleaned
+
+
 async def generate_all(game_info=None, max_moves=None):
     if not game_info:
         game_info = get_game_of_the_day()
@@ -414,8 +426,9 @@ async def generate_all(game_info=None, max_moves=None):
         seg = os.path.join(RECORDINGS_DIR, "seg_900_climax_review.mp4")
         encode_still_segment(recap_frame, recap_audio, recap_dur, seg)
         segment_files.append(seg)
-        add_subtitle(total_elapsed, total_elapsed + recap_dur, "Host", recap_text)
-        add_chapter(chapters, cs["time"], f"Turning Point: {strat}", force=True)
+        recap_start = total_elapsed
+        add_subtitle(recap_start, recap_start + recap_dur, "Host", recap_text)
+        add_chapter(chapters, recap_start, f"Turning Point: {strat}", force=True)
         total_elapsed += recap_dur
         print("[*] Turning-point analysis ready")
 
@@ -489,6 +502,7 @@ async def generate_all(game_info=None, max_moves=None):
                 tag = "[Chess Magix]"
             srt_out.write(f"{i}\n{format_srt_time(sub['start'])} --> {format_srt_time(sub['end'])}\n{tag} {sub['text']}\n\n")
 
+    chapters = finalize_chapters(chapters)
     with open(CHAPTERS_FILE, "w", encoding="utf-8") as f:
         json.dump(chapters, f, indent=2)
 
