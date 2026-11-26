@@ -83,14 +83,14 @@ def spoken_move(san):
 
 def apply_move(board, history, move_data, ply):
     player = move_data["player"]
-    san = move_data["san"]
+    san_display = move_data["san"] + move_data.get("note", "")
     ev = move_data["eval"]
     board.push(chess.Move.from_uci(move_data["move"]))
     move_num = (ply + 1) // 2
     if player == "White":
-        history.append({"num": move_num, "white": san, "black": "...", "eval": ev})
+        history.append({"num": move_num, "white": san_display, "black": "...", "eval": ev})
     elif history:
-        history[-1]["black"] = san
+        history[-1]["black"] = san_display
         history[-1]["eval"] = ev
 
 
@@ -343,6 +343,7 @@ async def generate_short(game_info, moment="climax", custom_ply=None, suffix=Non
     move_data = moves[ply - 1]
     last_move = chess.Move.from_uci(move_data["move"])
     san = move_data["san"]
+    san_display = san + move_data.get("note", "")
     eval_score = move_data["eval"]
     player = move_data["player"]
 
@@ -424,13 +425,13 @@ async def generate_short(game_info, moment="climax", custom_ply=None, suffix=Non
         **base_kwargs,
     )
     reveal_img = renderer.render(
-        board_after, last_move=last_move, last_move_san=san, history=history_after,
-        show_arrow=True, hook=f"THE MOVE: {san}", subtitle=reveal_text,
+        board_after, last_move=last_move, last_move_san=san_display, history=history_after,
+        show_arrow=True, hook=f"THE MOVE: {san_display}", subtitle=reveal_text,
         cta=config["cta"], move_label=f"MOVE {move_num}",
         badge=badge, eval_score=eval_score, **base_kwargs,
     )
     cta_img = renderer.render(
-        board_after, last_move=last_move, last_move_san=san, history=history_after,
+        board_after, last_move=last_move, last_move_san=san_display, history=history_after,
         show_arrow=True, hook=result, subtitle=cta_text,
         cta=config["cta"], move_label=f"MOVE {move_num}",
         badge=badge, eval_score=eval_score, **base_kwargs,
@@ -453,7 +454,7 @@ async def generate_short(game_info, moment="climax", custom_ply=None, suffix=Non
     anim_base = renderer.render(
         board_after, last_move=None, last_move_san="", history=history_after,
         hide_piece_sq=last_move.to_square, show_arrow=False,
-        hook=f"THE MOVE: {san}", subtitle=reveal_text,
+        hook=f"THE MOVE: {san_display}", subtitle=reveal_text,
         cta=config["cta"], move_label=f"MOVE {move_num}",
         badge=badge, eval_score=eval_score, **base_kwargs,
     )

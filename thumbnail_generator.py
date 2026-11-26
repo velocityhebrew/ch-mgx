@@ -31,11 +31,12 @@ def generate_youtube_thumbnail(game_info=None):
         move_obj = chess.Move.from_uci(m["move"])
         board.push(move_obj)
         num = (i + 2) // 2
+        san_display = m["san"] + m.get("note", "")
         if m["player"] == "White":
-            history.append({"num": num, "white": m["san"], "black": "...", "eval": m["eval"]})
+            history.append({"num": num, "white": san_display, "black": "...", "eval": m["eval"]})
         else:
             if history:
-                history[-1]["black"] = m["san"]
+                history[-1]["black"] = san_display
                 history[-1]["eval"] = m["eval"]
 
     last_move = chess.Move.from_uci(moves[climax_ply - 1]["move"]) if climax_ply > 0 else None

@@ -43,6 +43,26 @@ def run_daily_pipeline(requested_game_id=None):
     print(f"Tactical Theme  : {theme}")
     print("=" * 70)
 
+    # 1b. Real Stockfish analysis (falls back to simulated evals if unavailable)
+    print("\n[STOCKFISH] Analysing today's game...")
+    try:
+        from stockfish_analysis import analyse_game
+        analysis = analyse_game(game_info)
+        if analysis:
+            game_info["stockfish_analysis"] = analysis
+            if game_info.get("source") == "chess.com":
+                game_info["climax_ply"] = analysis["climax_ply"]
+                game_info["climax_badge"] = analysis["climax_badge"]
+                game_info["climax_hook"] = analysis["climax_hook"]
+            print(
+                f"[STOCKFISH] {analysis['engine']} depth {analysis['depth']} | "
+                f"turning point ply {analysis['climax_ply']}"
+            )
+        else:
+            print("[STOCKFISH] Unavailable; keeping simulated evaluations.")
+    except Exception as e:
+        print(f"[STOCKFISH] Analysis skipped: {e}")
+
     # 2. Query Paid Pollinations AI for Viral Metadata & Hooks
     print("\n[AI METADATA] Generating dynamic YouTube/Facebook metadata via Pollinations AI...")
     ai_meta = generate_game_metadata(game_info, today_str)
@@ -110,6 +130,15 @@ def run_daily_pipeline(requested_game_id=None):
         for ch in chapters
     )
 
+    stockfish_info = game_info.get("stockfish_analysis") or {}
+    if stockfish_info:
+        analysis_line = (
+            f"Analyzed with {stockfish_info.get('engine', 'Stockfish')} "
+            f"at depth {stockfish_info.get('depth', '?')}"
+        )
+    else:
+        analysis_line = "Analyzed with Stockfish-compatible evaluation"
+
     description = f"""{title}
 
 {hook}
@@ -131,7 +160,7 @@ MATCH INFORMATION
 FULL PGN & MOVES
 {game_info.get('pgn', '')}
 
-Analyzed with Stockfish and voiced by the Chess Magix broadcast team, with real-time tactical evaluation, board annotations, and live clocks.
+{analysis_line} and voiced by the Chess Magix broadcast team, with real tactical evaluation, board annotations, and live clocks.
 
 #Chess #Grandmaster #{hashtag(white_player)} #{hashtag(black_player)} #ChessTactics #ChessAI #BrilliantMove #ChessMagix
 """

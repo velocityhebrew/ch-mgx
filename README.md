@@ -16,6 +16,18 @@ YouTube and Facebook.
 - Set `GAME_SOURCE=auto` (default), `GAME_SOURCE=dynamic`, or
   `GAME_SOURCE=curated` to control the source.
 
+## Analysis
+
+When Stockfish is available (the GitHub workflow installs it), every game is
+analysed at depth 12:
+
+- real evaluation bar and move-by-move eval chips
+- annotations (`??`, `?`, `!`, `!!`)
+- a Stockfish-selected turning point and blunder/brilliant badge
+
+If Stockfish is unavailable (for example on a local Windows machine without
+the binary), the pipeline falls back to the simulated evaluation path.
+
 ## Pipeline
 
 ```bash

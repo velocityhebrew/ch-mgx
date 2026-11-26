@@ -600,6 +600,13 @@ def get_game_of_the_day(requested_id=None):
     idx = (day_offset * 7) % total
     return GRANDMASTER_GAMES[idx]
 
+def _spoken_eval(ev):
+    s = str(ev).strip()
+    if s.startswith("#"):
+        return "a forced checkmate"
+    return s
+
+
 def parse_game_moves(game_info):
     """
     Parses the PGN into structured move list with SAN, UCI, player, clocks, dynamic strategies, and board states.
@@ -618,6 +625,7 @@ def parse_game_moves(game_info):
     pgn_str = game_info.get("pgn", "")
     sign = 1 if "1-0" in pgn_str else (-1 if "0-1" in pgn_str else 0)
     swing_start = max(0.25, (climax_ply - 6) / max(1, total))
+    analysis = game_info.get("stockfish_analysis")
 
     moves = []
     for i, m in enumerate(mainline, 1):
@@ -630,17 +638,36 @@ def parse_game_moves(game_info):
         strat, dial = classify_move_strategy(board, m, san, i, game_info)
         board.push(m)
 
-        # Organic eval: quiet opening drift, ramping swing after the turning point
-        t = i / max(1, total)
-        if sign == 0 or t < swing_start:
-            val = 0.35 * math.sin(i * 0.9) + 0.15 * math.sin(i * 2.3)
+        if analysis:
+            eval_val = analysis["evals"][i - 1]
+            note = analysis["annotations"][i - 1]
+            if '#' not in san:
+                if note == "??":
+                    dial = f"{san}?? That is a blunder! Stockfish says the evaluation swings to {_spoken_eval(eval_val)}."
+                elif note == "?":
+                    dial = f"{san}? A mistake. Stockfish drops the evaluation to {_spoken_eval(eval_val)}."
+                elif note == "!!":
+                    dial = f"{san}!! Brilliant! Stockfish loves this move. The evaluation is {_spoken_eval(eval_val)}."
         else:
-            ramp = min(1.0, (t - swing_start) / max(0.05, 1.0 - swing_start))
-            val = sign * (0.3 + 8.7 * ramp ** 1.6) + 0.2 * math.sin(i * 1.3)
-        if '#' in san:
-            eval_val = "#1" if sign >= 0 else "#-1"
-        else:
-            eval_val = f"{val:+.1f}"
+            # Fallback: organic simulated eval when Stockfish is unavailable.
+            t = i / max(1, total)
+            if sign == 0 or t < swing_start:
+                val = 0.35 * math.sin(i * 0.9) + 0.15 * math.sin(i * 2.3)
+            else:
+                ramp = min(1.0, (t - swing_start) / max(0.05, 1.0 - swing_start))
+                val = sign * (0.3 + 8.7 * ramp ** 1.6) + 0.2 * math.sin(i * 1.3)
+            if '#' in san:
+                eval_val = "#1" if sign >= 0 else "#-1"
+            else:
+                eval_val = f"{val:+.1f}"
+            note = ""
+
+        if i == climax_ply and not note:
+            badge_text = str(game_info.get("climax_badge", "")).upper()
+            if "BLUNDER" in badge_text:
+                note = "??"
+            elif "BRILLIANT" in badge_text or "SAC" in badge_text:
+                note = "!!"
 
         moves.append({
             "ply": i,
@@ -650,6 +677,7 @@ def parse_game_moves(game_info):
             "player_name": player_name,
             "strategy": strat,
             "eval": eval_val,
+            "note": note,
             "dialogue": dial
         })
 

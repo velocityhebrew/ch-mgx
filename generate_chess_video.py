@@ -172,7 +172,7 @@ async def generate_all(game_info=None, max_moves=None):
     total_elapsed = 0.0
     climax_snapshot = None
     last_move_obj = None
-    last_san = ""
+    last_san_display = ""
 
     def add_subtitle(start, end, speaker, text):
         subtitles.append({"start": start, "end": end, "speaker": speaker, "text": text})
@@ -250,6 +250,8 @@ async def generate_all(game_info=None, max_moves=None):
         eval_score = move_data["eval"]
         dialogue = move_data["dialogue"]
         strategy = move_data.get("strategy", "")
+        note = move_data.get("note", "")
+        san_display = san_move + note
 
         clip_id = f"move_{idx:03d}"
         audio_path = await narrator.generate_dialogue(clip_id, player, dialogue)
@@ -273,10 +275,10 @@ async def generate_all(game_info=None, max_moves=None):
 
         move_num = (idx + 1) // 2
         if player == "White":
-            move_history.append({"num": move_num, "white": san_move, "black": "...", "eval": eval_score})
+            move_history.append({"num": move_num, "white": san_display, "black": "...", "eval": eval_score})
         else:
             if move_history:
-                move_history[-1]["black"] = san_move
+                move_history[-1]["black"] = san_display
                 move_history[-1]["eval"] = eval_score
 
         render_kwargs = dict(
@@ -294,7 +296,7 @@ async def generate_all(game_info=None, max_moves=None):
             move_label=f"MOVE {move_num} / {total_full_moves}",
             event_name=game_info.get("event", "Grandmaster Classic"),
             progress=idx / max(1, len(moves)),
-            last_move_san=san_move,
+            last_move_san=san_display,
         )
 
         # Base frame with the moving piece hidden, then slide it in over ANIM_FRAMES.
@@ -323,6 +325,7 @@ async def generate_all(game_info=None, max_moves=None):
                 "last_move": move_obj,
                 "history": [dict(h) for h in move_history],
                 "san": san_move,
+                "san_display": san_display,
                 "player_name": white_player if player == "White" else black_player,
                 "eval": eval_score,
                 "strategy": strategy,
@@ -341,7 +344,7 @@ async def generate_all(game_info=None, max_moves=None):
         add_subtitle(move_start, move_start + move_dur, player, dialogue)
         total_elapsed += move_dur
         last_move_obj = move_obj
-        last_san = san_move
+        last_san_display = san_display
 
         if halfway_ply and idx == halfway_ply:
             half_strategy = str(strategy).lstrip("! ").strip().lower() or "keeping the pressure on"
@@ -418,7 +421,7 @@ async def generate_all(game_info=None, max_moves=None):
             black_title=f"Grandmaster  •  {game_info.get('black_rating', '2800')}",
             move_label=f"MOVE {cs['move_num']} / {total_full_moves}",
             event_name=game_info.get("event", "Grandmaster Classic"),
-            progress=cs["progress"], last_move_san=cs["san"],
+            progress=cs["progress"], last_move_san=cs["san_display"],
             subtitle_speaker_name="Chess Magix",
         )
         recap_frame = os.path.join(FRAMES_DIR, "climax_review.png")
@@ -452,7 +455,7 @@ async def generate_all(game_info=None, max_moves=None):
         black_title=f"Grandmaster  •  {game_info.get('black_rating', '2800')}",
         move_label=f"FINAL  •  {total_full_moves} MOVES",
         event_name=game_info.get("event", "Grandmaster Classic"),
-        progress=1.0, last_move_san=last_san,
+        progress=1.0, last_move_san=last_san_display,
         subtitle_speaker_name="Chess Magix",
     )
     final_frame = os.path.join(FRAMES_DIR, "final_position.png")
