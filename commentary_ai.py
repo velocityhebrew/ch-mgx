@@ -130,7 +130,12 @@ def generate_game_metadata(game_info, today_str):
         t = str(t).replace("<", "").replace(">", "").strip()
         t = t.replace("’", "'").replace("‘", "'").replace("“", '"').replace("”", '"').replace("—", "-").replace("–", "-")
         # Remove the upload date if the model adds it; keep historical years.
-        t = t.replace(today_str, "").strip(" -|()[]")
+        t = t.replace(today_str, "").strip(" -|")
+        # Keep brackets balanced if the model or truncation leaves one open.
+        t = t.rstrip(" -|([{")
+        for left, right in (("(", ")"), ("[", "]"), ("{", "}")):
+            if t.count(left) > t.count(right):
+                t += right
         if len(t) > 90:
             t = t[:87].rstrip() + "..."
         return t
