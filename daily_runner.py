@@ -89,6 +89,16 @@ def run_daily_pipeline(requested_game_id=None):
     print("\n[STEP 2/3] Generating High-CTR Thumbnail...")
     thumb_path = generate_youtube_thumbnail(game_info)
 
+    # 4b. Generate a vertical YouTube Short from the same game
+    print("\n[STEP 2b/3] Generating today's YouTube Short...")
+    short_info = None
+    try:
+        from shorts_generator import generate_short
+        short_info = asyncio.run(generate_short(game_info))
+        print(f"[INFO] Short ready: {short_info['duration']:.1f}s")
+    except Exception as e:
+        print(f"[short] Generation skipped: {e}")
+
     # 5. Multi-Platform Broadcast (YouTube & Facebook)
     print("\n[STEP 3/3] Broadcasting to Social Channels...")
     if not os.path.exists(video_path) or os.path.getsize(video_path) < 1_000_000:
@@ -133,6 +143,32 @@ Analyzed with Stockfish and voiced by the Chess Magix broadcast team, with real-
         tags=tags,
         srt_path=srt_path,
     )
+
+    # 6. Upload the Short after the long video so we can link to it
+    long_url = (results.get("youtube") or {}).get("url")
+    if short_info and long_url:
+        print("\n[STEP 3b/3] Uploading YouTube Short...")
+        try:
+            from upload.upload_to_youtube import upload_to_youtube
+            short_desc = (
+                f"{short_info['description']}\n\n"
+                f"Full game: {long_url}"
+            )
+            results["youtube_short"] = upload_to_youtube(
+                video_path=short_info["path"],
+                thumbnail_path=None,
+                title=short_info["title"],
+                description=short_desc,
+                tags=tags,
+                srt_path=short_info.get("srt"),
+                add_to_playlist=False,
+            )
+        except Exception as e:
+            print(f"[short] Upload error: {e}")
+            results["youtube_short"] = {"status": "error", "error": str(e)}
+    elif short_info:
+        print("[short] Long upload was skipped or failed; Short upload skipped.")
+
     print("\n" + "=" * 70)
     print("DAILY PIPELINE COMPLETE!")
     print(f"Publishing Results: {results}")

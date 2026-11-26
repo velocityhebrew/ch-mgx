@@ -19,6 +19,7 @@ recordings/*.srt
 recordings/*.json
 recordings/list_*.txt
 recordings/concat_list.txt
+recordings/*_concat.txt
 recordings/seg_*.mp4
 recordings/frames/*.png
 

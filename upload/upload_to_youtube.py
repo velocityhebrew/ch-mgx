@@ -175,7 +175,8 @@ def _insert_video(youtube, body, video_path):
 
 
 def upload_to_youtube(video_path, thumbnail_path=None, title=None, description=None, tags=None,
-                      playlist_title=DEFAULT_PLAYLIST_TITLE, privacy_status="public", srt_path=None):
+                      playlist_title=DEFAULT_PLAYLIST_TITLE, privacy_status="public", srt_path=None,
+                      add_to_playlist=True):
     """Full YouTube upload with custom thumbnail, captions, and playlist insertion."""
     print("\n" + "=" * 60)
     print("▶️ YOUTUBE UPLOAD INITIATED")
@@ -251,7 +252,8 @@ def upload_to_youtube(video_path, thumbnail_path=None, title=None, description=N
     # Upload English closed captions
     upload_captions(youtube, video_id, srt_path)
 
-    # Add to Playlist
-    add_video_to_playlist(youtube, video_id, playlist_title)
+    # Add to Playlist (long-form only; Shorts should not go into the long playlist)
+    if add_to_playlist:
+        add_video_to_playlist(youtube, video_id, playlist_title)
 
     return {"status": "success", "platform": "youtube", "video_id": video_id, "url": video_url}

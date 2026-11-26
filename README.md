@@ -22,12 +22,21 @@ YouTube and Facebook.
 python daily_runner.py
 ```
 
+Each run produces two YouTube uploads:
+
+1. the full 1080p long-form broadcast
+2. a vertical 9:16 **Short** built from the game's climax, with a hook,
+   the answer, and a link to the full video
+
 Outputs in `recordings/`:
 
 - `grandmaster_chess_battle.mp4` — full video
 - `thumbnail.png` — YouTube thumbnail
 - `chess_subtitles.srt` — captions
 - `chapters.json` — chapter timestamps used in the description
+- `short.mp4` — vertical Short
+- `short_thumbnail.png` — Short cover frame
+- `short.srt` — Short captions
 
 ## GitHub Actions
 
