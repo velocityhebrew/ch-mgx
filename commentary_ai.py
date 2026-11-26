@@ -79,15 +79,17 @@ def validate_pgn(pgn_str, min_plies=16, max_plies=90):
 
 def select_daily_grandmaster_game(requested_id=None):
     """
-    Dynamically selects today's grandmaster game using coprime rotation across 30+ verified master games.
-    Guarantees that every single day and GitHub Action run features a completely different game,
-    different players, different moves, and different tactical themes!
+    Selects a fresh game from the dynamic Chess.com elite pool, with the curated
+    30-game library as an offline fallback. used_games.json prevents repeats.
     """
-    from grandmaster_database import GRANDMASTER_GAMES, get_game_of_the_day
+    from game_source import select_game
 
-    chosen_game = get_game_of_the_day(requested_id)
-    print(f"[GAME SELECTION] Successfully selected today's grandmaster match: {chosen_game['title']}")
-    print(f"[GAME SELECTION] Matchup: {chosen_game['white_name']} vs {chosen_game['black_name']} | Opening: {chosen_game['opening']}")
+    chosen_game = select_game(requested_id)
+    print(f"[GAME SELECTION] Source: {chosen_game.get('source', '?')} | {chosen_game['title']}")
+    print(
+        f"[GAME SELECTION] Matchup: {chosen_game['white_name']} vs {chosen_game['black_name']} "
+        f"| Opening: {chosen_game.get('opening', '?')} | Plies: {chosen_game.get('plies', '?')}"
+    )
     return chosen_game
 
 def generate_game_metadata(game_info, today_str):

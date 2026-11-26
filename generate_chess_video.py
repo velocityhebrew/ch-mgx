@@ -28,6 +28,7 @@ ANIM_FRAMES = int(ANIM_DUR * FPS)
 MOVE_PAUSE = 1.4
 CLIMAX_BONUS = 1.6
 CHECKMATE_BONUS = 1.4
+MIN_TARGET_SECONDS = 420.0  # the game source filters for 78+ plies; warn if we land short
 
 
 def format_clock(seconds_left: float) -> str:
@@ -511,6 +512,11 @@ async def generate_all(game_info=None, max_moves=None):
     if actual_duration < total_elapsed - 3.0:
         raise RuntimeError(
             f"Final video is shorter than rendered segments: {actual_duration:.1f}s vs {total_elapsed:.1f}s"
+        )
+    if actual_duration < MIN_TARGET_SECONDS:
+        print(
+            f"[WARNING] Final video is {actual_duration / 60:.1f} min, below the "
+            f"{MIN_TARGET_SECONDS / 60:.0f}-minute target. Game has {len(moves)} plies."
         )
 
     print(f"[SUCCESS] Final 1080p 60FPS video ({actual_duration:.1f}s): {OUTPUT_VIDEO}")

@@ -2,6 +2,9 @@
 __pycache__/
 *.pyc
 
+# Local API caches (leaderboards / GM lists)
+cache/
+
 # Local engines (GitHub Actions installs its own)
 engine/stockfish/*.exe
 engine/stockfish/*.zip
