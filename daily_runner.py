@@ -89,13 +89,14 @@ def run_daily_pipeline(requested_game_id=None):
     print("\n[STEP 2/3] Generating High-CTR Thumbnail...")
     thumb_path = generate_youtube_thumbnail(game_info)
 
-    # 4b. Generate a vertical YouTube Short from the same game
-    print("\n[STEP 2b/3] Generating today's YouTube Short...")
-    short_info = None
+    # 4b. Generate up to three vertical YouTube Shorts from the same game
+    print("\n[STEP 2b/3] Generating today's YouTube Shorts...")
+    short_infos = []
     try:
-        from shorts_generator import generate_short
-        short_info = asyncio.run(generate_short(game_info))
-        print(f"[INFO] Short ready: {short_info['duration']:.1f}s")
+        from shorts_generator import generate_all_shorts
+        short_infos = asyncio.run(generate_all_shorts(game_info))
+        print(f"[INFO] {len(short_infos)} Shorts ready: "
+              + ", ".join(f"{s['moment']} {s['duration']:.1f}s" for s in short_infos))
     except Exception as e:
         print(f"[short] Generation skipped: {e}")
 
@@ -144,30 +145,37 @@ Analyzed with Stockfish and voiced by the Chess Magix broadcast team, with real-
         srt_path=srt_path,
     )
 
-    # 6. Upload the Short after the long video so we can link to it
+    # 6. Upload the Shorts after the long video so we can link to it.
+    #    Spread them across the day: +1h, +5h, +9h.
     long_url = (results.get("youtube") or {}).get("url")
-    if short_info and long_url:
-        print("\n[STEP 3b/3] Uploading YouTube Short...")
-        try:
-            from upload.upload_to_youtube import upload_to_youtube
-            short_desc = (
-                f"{short_info['description']}\n\n"
-                f"Full game: {long_url}"
-            )
-            results["youtube_short"] = upload_to_youtube(
-                video_path=short_info["path"],
-                thumbnail_path=None,
-                title=short_info["title"],
-                description=short_desc,
-                tags=tags,
-                srt_path=short_info.get("srt"),
-                add_to_playlist=False,
-            )
-        except Exception as e:
-            print(f"[short] Upload error: {e}")
-            results["youtube_short"] = {"status": "error", "error": str(e)}
-    elif short_info:
-        print("[short] Long upload was skipped or failed; Short upload skipped.")
+    if short_infos and long_url:
+        from upload.upload_to_youtube import upload_to_youtube
+        offsets = [1, 3, 5]
+        for i, info in enumerate(short_infos):
+            key = f"youtube_short_{i + 1}"
+            print(f"\n[STEP 3b/3] Uploading Short {i + 1}/{len(short_infos)} "
+                  f"({info['moment']})...")
+            try:
+                publish_at = (
+                    datetime.datetime.now(datetime.timezone.utc)
+                    + datetime.timedelta(hours=offsets[i])
+                ).strftime("%Y-%m-%dT%H:%M:%SZ")
+                short_desc = f"{info['description']}\n\nFull game: {long_url}"
+                results[key] = upload_to_youtube(
+                    video_path=info["path"],
+                    thumbnail_path=None,
+                    title=info["title"],
+                    description=short_desc,
+                    tags=tags,
+                    srt_path=info.get("srt"),
+                    add_to_playlist=False,
+                    publish_at=publish_at,
+                )
+            except Exception as e:
+                print(f"[short] Upload error: {e}")
+                results[key] = {"status": "error", "error": str(e)}
+    elif short_infos:
+        print("[short] Long upload was skipped or failed; Short uploads skipped.")
 
     print("\n" + "=" * 70)
     print("DAILY PIPELINE COMPLETE!")

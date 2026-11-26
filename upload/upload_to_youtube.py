@@ -176,7 +176,7 @@ def _insert_video(youtube, body, video_path):
 
 def upload_to_youtube(video_path, thumbnail_path=None, title=None, description=None, tags=None,
                       playlist_title=DEFAULT_PLAYLIST_TITLE, privacy_status="public", srt_path=None,
-                      add_to_playlist=True):
+                      add_to_playlist=True, publish_at=None):
     """Full YouTube upload with custom thumbnail, captions, and playlist insertion."""
     print("\n" + "=" * 60)
     print("▶️ YOUTUBE UPLOAD INITIATED")
@@ -215,23 +215,36 @@ def upload_to_youtube(video_path, thumbnail_path=None, title=None, description=N
             "defaultAudioLanguage": "en",
         },
         "status": {
-            "privacyStatus": privacy_status,
+            "privacyStatus": "private" if publish_at else privacy_status,
             "selfDeclaredMadeForKids": False,
             # AI voice + generated visuals: disclose synthetic/altered content.
             "containsSyntheticMedia": True,
         }
     }
+    if publish_at:
+        body["status"]["publishAt"] = publish_at
+        print(f"[youtube] Scheduling for {publish_at}")
 
     print(f"[youtube] Uploading: {title} ({os.path.getsize(video_path) // (1024*1024)} MB)...")
-    try:
-        resp = _insert_video(youtube, body, video_path)
-    except HttpError as e:
-        if "containsSyntheticMedia" in str(e):
-            print("[youtube] Retrying without synthetic-media flag (API rejected the field)...")
-            body["status"].pop("containsSyntheticMedia", None)
+    resp = None
+    for _ in range(3):
+        try:
             resp = _insert_video(youtube, body, video_path)
-        else:
+            break
+        except HttpError as e:
+            msg = str(e)
+            if "containsSyntheticMedia" in msg and "containsSyntheticMedia" in body["status"]:
+                print("[youtube] Retrying without synthetic-media flag (API rejected the field)...")
+                body["status"].pop("containsSyntheticMedia", None)
+                continue
+            if ("publishAt" in msg or "privacyStatus" in msg) and "publishAt" in body["status"]:
+                print("[youtube] Scheduled publishing rejected; publishing immediately instead...")
+                body["status"].pop("publishAt", None)
+                body["status"]["privacyStatus"] = "public"
+                continue
             raise
+    if resp is None:
+        raise RuntimeError("YouTube upload failed after metadata fallbacks")
 
     video_id = resp.get("id")
     video_url = f"https://youtu.be/{video_id}"
@@ -256,4 +269,11 @@ def upload_to_youtube(video_path, thumbnail_path=None, title=None, description=N
     if add_to_playlist:
         add_video_to_playlist(youtube, video_id, playlist_title)
 
-    return {"status": "success", "platform": "youtube", "video_id": video_id, "url": video_url}
+    return {
+        "status": "success",
+        "platform": "youtube",
+        "video_id": video_id,
+        "url": video_url,
+        "scheduled": bool(body["status"].get("publishAt")),
+        "publish_at": body["status"].get("publishAt"),
+    }

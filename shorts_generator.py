@@ -1,9 +1,13 @@
 """
 Vertical YouTube Shorts generator.
 
-Creates a 9:16 highlight (hook -> climax move -> CTA) from the same game that
-the long-form video uses. Reuses the existing board renderer, voice-over, and
-ffmpeg helpers.
+Creates 9:16 highlights from the same game as the long-form video:
+  - climax:  can you find the winning move?
+  - finish:  how did this game end?
+  - opening: can you spot the opening trap?
+
+The daily runner uploads one long video and up to three Shorts, scheduled
+across the day.
 """
 
 import os
@@ -33,9 +37,40 @@ FRAMES_DIR = os.path.join(RECORDINGS_DIR, "frames")
 VOICE_DIR = os.path.join(BASE_DIR, "voiceover")
 os.makedirs(FRAMES_DIR, exist_ok=True)
 
-SHORT_VIDEO = os.path.join(RECORDINGS_DIR, "short.mp4")
-SHORT_SRT = os.path.join(RECORDINGS_DIR, "short.srt")
-SHORT_THUMB = os.path.join(RECORDINGS_DIR, "short_thumbnail.png")
+MOMENT_CONFIG = {
+    "climax": {
+        "hook": "CAN YOU FIND THE WINNING MOVE?",
+        "hook_spoken": "Can you find the winning move?",
+        "title": "Can You Find the Winning Move?",
+        "cta": "FULL GAME ON CHESS MAGIX",
+        "reveal_prefix": "The move is",
+        "reveal_tail": "finds it, and the evaluation jumps to {eval}.",
+    },
+    "finish": {
+        "hook": "HOW DID THIS GAME END?",
+        "hook_spoken": "How did this game end?",
+        "title": "How Did This Game End?",
+        "cta": "WATCH THE FULL GAME",
+        "reveal_prefix": "The final move is",
+        "reveal_tail": "finishes it.",
+    },
+    "opening": {
+        "hook": "CAN YOU SPOT THE OPENING TRAP?",
+        "hook_spoken": "Can you spot the opening trap?",
+        "title": "Can You Spot the Opening Trap?",
+        "cta": "FULL GAME ON CHESS MAGIX",
+        "reveal_prefix": "The trap is",
+        "reveal_tail": "strikes early.",
+    },
+}
+
+
+def short_paths(suffix):
+    return {
+        "video": os.path.join(RECORDINGS_DIR, f"short_{suffix}.mp4"),
+        "srt": os.path.join(RECORDINGS_DIR, f"short_{suffix}.srt"),
+        "thumb": os.path.join(RECORDINGS_DIR, f"short_{suffix}_thumbnail.png"),
+    }
 
 
 def spoken_move(san):
@@ -230,29 +265,99 @@ def _write_srt(entries, path):
             f.write(f"{i}\n{format_srt_time(start)} --> {format_srt_time(end)}\n{text}\n\n")
 
 
-async def generate_short(game_info):
-    """Generate recordings/short.mp4 and return its metadata."""
+def _find_opening_ply(moves, climax_ply, finish_ply):
+    """Pick a real early tactic: a check, queen raid, or promotion."""
+    if len(moves) < 12:
+        return None
+    limit = min(30, max(12, int(len(moves) * 0.4)))
+    best = None
+    for ply, move_data in enumerate(moves[:limit], 1):
+        if ply in (climax_ply, finish_ply):
+            continue
+        san = move_data["san"]
+        score = 0
+        if "#" in san:
+            score += 50
+        elif "+" in san:
+            score += 10
+        if san.startswith("Qx"):
+            score += 12
+        elif "x" in san:
+            score += 2
+        if "=" in san:
+            score += 10
+        if score >= 10 and (best is None or score > best[0]):
+            best = (score, ply)
+    return best[1] if best else None
+
+
+def _moment_plan(game_info, moves):
+    climax_ply = int(game_info.get("climax_ply") or len(moves))
+    climax_ply = max(1, min(climax_ply, len(moves)))
+    plan = [("climax", climax_ply)]
+    finish_ply = len(moves)
+    if finish_ply != climax_ply:
+        plan.append(("finish", finish_ply))
+    opening_ply = _find_opening_ply(moves, climax_ply, finish_ply)
+    if opening_ply:
+        plan.append(("opening", opening_ply))
+    return plan[:3]
+
+
+def _badge_for(moment, game_info, san, captured):
+    if moment == "climax":
+        return game_info.get("climax_badge", "!! TACTICAL BLOW")
+    if "#" in san:
+        return "!! CHECKMATE"
+    if moment == "finish":
+        if captured is not None:
+            return "!! FINAL CAPTURE"
+        if "+" in san:
+            return "!! FINAL CHECK"
+        return "!! FINAL BLOW"
+    if captured is not None and captured.piece_type == chess.QUEEN:
+        return "!! QUEEN RAID"
+    if "#" in san:
+        return "!! EARLY MATE"
+    if "+" in san:
+        return "!! EARLY CHECK"
+    if "=" in san:
+        return "!! EARLY PROMOTION"
+    return "!! EARLY TACTIC"
+
+
+async def generate_short(game_info, moment="climax", custom_ply=None, suffix=None):
+    """Generate one vertical Short for the requested moment."""
     moves = parse_game_moves(game_info)
     if not moves:
         raise RuntimeError("No moves to build a Short from")
 
     climax_ply = int(game_info.get("climax_ply") or len(moves))
     climax_ply = max(1, min(climax_ply, len(moves)))
-    climax_move = moves[climax_ply - 1]
-    last_move = chess.Move.from_uci(climax_move["move"])
-    san = climax_move["san"]
-    eval_score = climax_move["eval"]
-    strategy = climax_move.get("strategy", "")
-    player = climax_move["player"]
+    ply = custom_ply or (len(moves) if moment == "finish" else climax_ply)
+    ply = max(1, min(ply, len(moves)))
+    suffix = suffix or moment
+    config = MOMENT_CONFIG[moment]
+    paths = short_paths(suffix)
+
+    move_data = moves[ply - 1]
+    last_move = chess.Move.from_uci(move_data["move"])
+    san = move_data["san"]
+    eval_score = move_data["eval"]
+    player = move_data["player"]
 
     board_before = chess.Board()
     history_before = []
-    for ply, move_data in enumerate(moves[:climax_ply - 1], 1):
-        apply_move(board_before, history_before, move_data, ply)
+    for idx, md in enumerate(moves[:ply - 1], 1):
+        apply_move(board_before, history_before, md, idx)
 
     board_after = board_before.copy()
     history_after = [dict(h) for h in history_before]
-    apply_move(board_after, history_after, climax_move, climax_ply)
+    apply_move(board_after, history_after, move_data, ply)
+
+    captured = board_before.piece_at(last_move.to_square)
+    badge = _badge_for(moment, game_info, san, captured)
+    move_num = (ply + 1) // 2
 
     white = game_info.get("white_name", "White")
     black = game_info.get("black_name", "Black")
@@ -260,8 +365,6 @@ async def generate_short(game_info):
     black_clean = black.replace("GM ", "")
     white_rating = game_info.get("white_rating", "2800")
     black_rating = game_info.get("black_rating", "2800")
-    move_num = (climax_ply + 1) // 2
-    badge = game_info.get("climax_badge", "!! TACTICAL BLOW")
     pgn = game_info.get("pgn", "")
     if "1-0" in pgn:
         result = "WHITE WINS"
@@ -274,16 +377,33 @@ async def generate_short(game_info):
     badge_spoken = str(badge).lstrip("! ").strip().lower()
     player_clean = white_clean if player == "White" else black_clean
 
-    hook_text = f"Can you find the winning move? {white_clean} versus {black_clean}."
-    reveal_text = (
-        f"The move is {spoken_move(san)}. {badge_spoken}. "
-        f"{player_clean} finds it, and the evaluation jumps to {spoken_eval(eval_score)}."
-    )
+    hook_text = f"{config['hook_spoken']} {white_clean} versus {black_clean}."
+    if moment == "climax":
+        reveal_text = (
+            f"The move is {spoken_move(san)}. {badge_spoken}. "
+            f"{player_clean} finds it, and the evaluation jumps to {spoken_eval(eval_score)}."
+        )
+    else:
+        move_phrase = spoken_move(san)
+        duplicate_check = (
+            badge_spoken and (
+                badge_spoken in move_phrase
+                or ("check" in badge_spoken and "check" in move_phrase)
+            )
+        )
+        if duplicate_check:
+            badge_clause = ""
+        else:
+            badge_clause = f"{badge_spoken}. "
+        reveal_text = (
+            f"{config['reveal_prefix']} {move_phrase}. {badge_clause}"
+            f"{player_clean} {config['reveal_tail']}"
+        )
     cta_text = "Full game on Chess Magix. Subscribe for daily grandmaster battles."
 
-    hook_audio = await narrator.generate_dialogue("short_hook", "Host", hook_text)
-    reveal_audio = await narrator.generate_dialogue("short_reveal", "Host", reveal_text)
-    cta_audio = await narrator.generate_dialogue("short_cta", "Host", cta_text)
+    hook_audio = await narrator.generate_dialogue(f"short_{suffix}_hook", "Host", hook_text)
+    reveal_audio = await narrator.generate_dialogue(f"short_{suffix}_reveal", "Host", reveal_text)
+    cta_audio = await narrator.generate_dialogue(f"short_{suffix}_cta", "Host", cta_text)
 
     hook_dur = narrator.get_audio_duration(hook_audio) + 0.6
     reveal_dur = narrator.get_audio_duration(reveal_audio) + 0.6
@@ -293,40 +413,40 @@ async def generate_short(game_info):
     base_kwargs = dict(
         white=white_clean, black=black_clean,
         white_rating=white_rating, black_rating=black_rating,
-        progress=climax_ply / max(1, len(moves)),
+        progress=ply / max(1, len(moves)),
     )
 
     hook_img = renderer.render(
         board_before, last_move=None, last_move_san="", history=history_before,
-        show_arrow=False, hook="CAN YOU FIND THE WINNING MOVE?",
-        subtitle="Can you find the winning move?", cta="WATCH THE FULL GAME",
+        show_arrow=False, hook=config["hook"],
+        subtitle=config["hook_spoken"], cta=config["cta"],
         move_label=f"MOVE {move_num}", badge="FIND THE MOVE", eval_score="?",
         **base_kwargs,
     )
     reveal_img = renderer.render(
         board_after, last_move=last_move, last_move_san=san, history=history_after,
         show_arrow=True, hook=f"THE MOVE: {san}", subtitle=reveal_text,
-        cta="FULL GAME ON CHESS MAGIX", move_label=f"MOVE {move_num}",
+        cta=config["cta"], move_label=f"MOVE {move_num}",
         badge=badge, eval_score=eval_score, **base_kwargs,
     )
     cta_img = renderer.render(
         board_after, last_move=last_move, last_move_san=san, history=history_after,
         show_arrow=True, hook=result, subtitle=cta_text,
-        cta="FULL GAME ON CHESS MAGIX", move_label=f"MOVE {move_num}",
+        cta=config["cta"], move_label=f"MOVE {move_num}",
         badge=badge, eval_score=eval_score, **base_kwargs,
     )
 
-    hook_frame = os.path.join(FRAMES_DIR, "short_hook.png")
-    reveal_frame = os.path.join(FRAMES_DIR, "short_reveal.png")
-    cta_frame = os.path.join(FRAMES_DIR, "short_cta.png")
+    hook_frame = os.path.join(FRAMES_DIR, f"short_{suffix}_hook.png")
+    reveal_frame = os.path.join(FRAMES_DIR, f"short_{suffix}_reveal.png")
+    cta_frame = os.path.join(FRAMES_DIR, f"short_{suffix}_cta.png")
     hook_img.save(hook_frame)
     reveal_img.save(reveal_frame)
     cta_img.save(cta_frame)
-    reveal_img.save(SHORT_THUMB)
+    reveal_img.save(paths["thumb"])
 
-    seg_hook = os.path.join(RECORDINGS_DIR, "short_seg_hook.mp4")
-    seg_reveal = os.path.join(RECORDINGS_DIR, "short_seg_reveal.mp4")
-    seg_cta = os.path.join(RECORDINGS_DIR, "short_seg_cta.mp4")
+    seg_hook = os.path.join(RECORDINGS_DIR, f"short_{suffix}_seg_hook.mp4")
+    seg_reveal = os.path.join(RECORDINGS_DIR, f"short_{suffix}_seg_reveal.mp4")
+    seg_cta = os.path.join(RECORDINGS_DIR, f"short_{suffix}_seg_cta.mp4")
 
     encode_still_segment(hook_frame, hook_audio, hook_dur, seg_hook)
 
@@ -334,7 +454,8 @@ async def generate_short(game_info):
         board_after, last_move=None, last_move_san="", history=history_after,
         hide_piece_sq=last_move.to_square, show_arrow=False,
         hook=f"THE MOVE: {san}", subtitle=reveal_text,
-        cta="FULL GAME ON CHESS MAGIX", **base_kwargs,
+        cta=config["cta"], move_label=f"MOVE {move_num}",
+        badge=badge, eval_score=eval_score, **base_kwargs,
     )
     piece_sym = ("w" if player == "White" else "b") + board_after.piece_at(last_move.to_square).symbol().upper()
     x1b, y1b = renderer.base.square_center(last_move.from_square)
@@ -353,23 +474,23 @@ async def generate_short(game_info):
         cy = y1 + (y2 - y1) * ease
         frame = anim_base.copy()
         renderer.base.paste_piece(frame, piece_sym, cx, cy, size=piece_size)
-        frame.save(os.path.join(FRAMES_DIR, f"short_anim_{k:02d}.png"))
+        frame.save(os.path.join(FRAMES_DIR, f"short_{suffix}_anim_{k:02d}.png"))
 
-    anim_pattern = os.path.join(FRAMES_DIR, "short_anim_%02d.png")
+    anim_pattern = os.path.join(FRAMES_DIR, f"short_{suffix}_anim_%02d.png")
     encode_move_segment(anim_pattern, reveal_frame, reveal_audio, reveal_dur, seg_reveal)
     encode_still_segment(cta_frame, cta_audio, cta_dur, seg_cta)
 
-    concat_file = os.path.join(RECORDINGS_DIR, "short_concat.txt")
+    concat_file = os.path.join(RECORDINGS_DIR, f"short_{suffix}_concat.txt")
     with open(concat_file, "w", encoding="utf-8") as f:
         for seg in (seg_hook, seg_reveal, seg_cta):
             f.write(f"file '{os.path.basename(seg)}'\n")
     cmd = ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", concat_file,
-           "-c", "copy", "-movflags", "+faststart", SHORT_VIDEO]
+           "-c", "copy", "-movflags", "+faststart", paths["video"]]
     res = subprocess.run(cmd, cwd=RECORDINGS_DIR, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
     if res.returncode != 0:
         raise RuntimeError(f"Short concat failed: {res.stderr.decode()[-800:]}")
 
-    duration = probe_duration(SHORT_VIDEO)
+    duration = probe_duration(paths["video"])
     if duration is None:
         raise RuntimeError("Could not read Short duration")
     if duration > 60:
@@ -379,23 +500,39 @@ async def generate_short(game_info):
         (0.0, hook_dur, hook_text),
         (hook_dur, hook_dur + reveal_dur, reveal_text),
         (hook_dur + reveal_dur, hook_dur + reveal_dur + cta_dur, cta_text),
-    ], SHORT_SRT)
+    ], paths["srt"])
 
-    title = f"Can You Find the Winning Move? {white_clean} vs {black_clean}"
-    hook_line = f"{white_clean} vs {black_clean}: can you find the winning move?"
-    print(f"[short] Generated {duration:.1f}s Short: {SHORT_VIDEO}")
+    title = f"{config['title']} {white_clean} vs {black_clean}"
+    hook_line = f"{white_clean} vs {black_clean}: {config['hook_spoken'].lower()}"
+    print(f"[short:{moment}] Generated {duration:.1f}s Short: {paths['video']}")
     return {
-        "path": SHORT_VIDEO,
-        "thumbnail": SHORT_THUMB,
-        "srt": SHORT_SRT,
+        "path": paths["video"],
+        "thumbnail": paths["thumb"],
+        "srt": paths["srt"],
         "duration": duration,
         "title": title,
         "hook": hook_line,
+        "moment": moment,
         "description": f"#Shorts\n{hook_line}\n\n#Chess #Grandmaster #ChessMagix",
     }
 
 
+async def generate_all_shorts(game_info):
+    """Generate the climax, finish, and opening-trap Shorts (up to 3)."""
+    moves = parse_game_moves(game_info)
+    plan = _moment_plan(game_info, moves)
+    results = []
+    for moment, ply in plan:
+        try:
+            info = await generate_short(game_info, moment=moment, custom_ply=ply, suffix=moment)
+            results.append(info)
+        except Exception as e:
+            print(f"[short:{moment}] Generation failed: {e}")
+    return results
+
+
 if __name__ == "__main__":
     from grandmaster_database import get_game_of_the_day
-    info = asyncio.run(generate_short(get_game_of_the_day("reti_tartakower_1910")))
-    print(info)
+    infos = asyncio.run(generate_all_shorts(get_game_of_the_day("reti_tartakower_1910")))
+    for info in infos:
+        print(info)

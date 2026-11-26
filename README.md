@@ -22,11 +22,16 @@ YouTube and Facebook.
 python daily_runner.py
 ```
 
-Each run produces two YouTube uploads:
+Each run produces up to four YouTube uploads:
 
-1. the full 1080p long-form broadcast
-2. a vertical 9:16 **Short** built from the game's climax, with a hook,
-   the answer, and a link to the full video
+1. the full 1080p long-form broadcast (public immediately)
+2. the **climax** Short — “Can you find the winning move?”
+3. the **finish** Short — “How did this game end?”
+4. the **opening trap** Short — “Can you spot the opening trap?”
+
+The Shorts are vertical 9:16, about 16–25 seconds each, and are scheduled
+about 1, 3, and 5 hours after the long video. Each one links to the full game
+in its description.
 
 Outputs in `recordings/`:
 
@@ -34,9 +39,9 @@ Outputs in `recordings/`:
 - `thumbnail.png` — YouTube thumbnail
 - `chess_subtitles.srt` — captions
 - `chapters.json` — chapter timestamps used in the description
-- `short.mp4` — vertical Short
-- `short_thumbnail.png` — Short cover frame
-- `short.srt` — Short captions
+- `short_climax.mp4` / `short_finish.mp4` / `short_opening.mp4` — vertical Shorts
+- `short_*_thumbnail.png` — Short cover frames
+- `short_*.srt` — Short captions
 
 ## GitHub Actions
 
