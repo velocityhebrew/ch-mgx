@@ -114,7 +114,7 @@ def generate_game_metadata(game_info, today_str):
         f"Core Theme: {theme}\n"
         f"Date: {today_str}\n\n"
         f"CRITICAL REQUIREMENTS:\n"
-        f"- Title must be sensational, strictly UNDER 85 characters, use standard ASCII characters, and avoid revealing the final result (e.g. '{white.split()[-1]} vs {black.split()[-1]}: {theme[:30]} [{today_str}]')\n"
+        f"- Title must be sensational, strictly UNDER 80 characters, use standard ASCII characters, avoid revealing the final result, and do NOT include the upload date (e.g. '{white.split()[-1]} vs {black.split()[-1]}: {theme[:30]}')\n"
         f"- hook_summary: 2-3 sentences that tease the tactical brilliance WITHOUT revealing the winner or final result\n"
         f"- tags: 10-15 relevant high-search tags"
     )
@@ -125,9 +125,12 @@ def generate_game_metadata(game_info, today_str):
     ]
 
     def clean_title(t):
-        if not t: return f"{white.split()[-1]} vs {black.split()[-1]} [{today_str}]"
+        if not t:
+            t = f"{white.split()[-1]} vs {black.split()[-1]}: {theme[:45]}"
         t = str(t).replace("<", "").replace(">", "").strip()
         t = t.replace("’", "'").replace("‘", "'").replace("“", '"').replace("”", '"').replace("—", "-").replace("–", "-")
+        # Remove the upload date if the model adds it; keep historical years.
+        t = t.replace(today_str, "").strip(" -|()[]")
         if len(t) > 90:
             t = t[:87].rstrip() + "..."
         return t
@@ -148,7 +151,7 @@ def generate_game_metadata(game_info, today_str):
             print(f"[commentary_ai] Parse error: {e}")
 
     # Robust fallback metadata
-    fallback_title = clean_title(f"{white.split()[-1]} vs {black.split()[-1]}: {theme[:35]} [{today_str}]")
+    fallback_title = clean_title(f"{white.split()[-1]} vs {black.split()[-1]}: {theme[:45]}")
     return {
         "title": fallback_title,
         "hook_summary": f"Relive the historic battle between {white} and {black} at {event}. Featuring the {opening} and masterclass tactics.",

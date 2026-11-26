@@ -295,7 +295,7 @@ GRANDMASTER_GAMES = [
         "theme": "Judit Polgar's Lethal Queen Sacrifice (24.Qf6!!) Dominating the Board",
         "climax_ply": 47,
         "climax_badge": "!! JUDIT'S QUEEN CRUSH",
-        "climax_hook": "JUDIT POLGAR OFFERS HER QUEEN WITH ZERO HESITATION?!",
+        "climax_hook": "JUDIT POLGAR OFFERS HER QUEEN WITH ZERO DOUBT?!",
         "pgn": "1. e4 c6 2. d4 d5 3. Nc3 dxe4 4. Nxe4 Nf6 5. Nxf6+ gxf6 6. c3 Bf5 7. Nf3 e6 8. g3 Nd7 9. Bg2 Be7 10. O-O O-O 11. Nh4 Bg6 12. f4 f5 13. Nf3 Bh5 14. Qb3 Bxf3 15. Bxf3 Qb6 16. Qc2 c5 17. d5 c4+ 18. Kg2 Nc5 19. Be3 Qc7 20. Rad1 Rad8 21. dxe6 fxe6 22. Bd4 Nd3 23. Qe2 Rd6 24. Rxd3 cxd3 25. Qe5 Bf6 26. Qxf6 Rxf6 27. Be5 Qd7 28. Bxf6 d2 29. Rd1 Qb5 30. b4 Qa4 31. Bd4 Qxa2 1-0"
     },
     {
@@ -518,7 +518,7 @@ def classify_move_strategy(board_before, move, san, ply_idx, game_info):
         return f"EXCHANGE ON {sq.upper()}", pick([
             f"Takes on {sq}! The {cap_name} comes off.",
             f"Capture on {sq}. Material changes hands.",
-            f"He snaps off the {cap_name} on {sq}. No hesitation.",
+            f"He snaps off the {cap_name} on {sq}. No delay.",
             f"{san}! The {cap_name} is gone and the position blows open.",
         ])
 
