@@ -337,7 +337,6 @@ async def generate_short(game_info, moment="climax", custom_ply=None, suffix=Non
     ply = custom_ply or (len(moves) if moment == "finish" else climax_ply)
     ply = max(1, min(ply, len(moves)))
     suffix = suffix or moment
-    config = MOMENT_CONFIG[moment]
     paths = short_paths(suffix)
 
     move_data = moves[ply - 1]
@@ -358,6 +357,15 @@ async def generate_short(game_info, moment="climax", custom_ply=None, suffix=Non
 
     captured = board_before.piece_at(last_move.to_square)
     badge = _badge_for(moment, game_info, san, captured)
+    config = dict(MOMENT_CONFIG[moment])
+    if moment == "climax" and "BLUNDER" in str(badge).upper():
+        config.update({
+            "hook": "CAN YOU SPOT THE BLUNDER?",
+            "hook_spoken": "Can you spot the blunder?",
+            "title": "Can You Spot the Blunder?",
+            "reveal_prefix": "The blunder is",
+            "reveal_tail": "walks into it.",
+        })
     move_num = (ply + 1) // 2
 
     white = game_info.get("white_name", "White")
@@ -380,10 +388,16 @@ async def generate_short(game_info, moment="climax", custom_ply=None, suffix=Non
 
     hook_text = f"{config['hook_spoken']} {white_clean} versus {black_clean}."
     if moment == "climax":
-        reveal_text = (
-            f"The move is {spoken_move(san)}. {badge_spoken}. "
-            f"{player_clean} finds it, and the evaluation jumps to {spoken_eval(eval_score)}."
-        )
+        if "BLUNDER" in str(badge).upper():
+            reveal_text = (
+                f"The blunder is {spoken_move(san)}. {player_clean} walks into it, "
+                f"and the evaluation swings to {spoken_eval(eval_score)}."
+            )
+        else:
+            reveal_text = (
+                f"The move is {spoken_move(san)}. {badge_spoken}. "
+                f"{player_clean} finds it, and the evaluation jumps to {spoken_eval(eval_score)}."
+            )
     else:
         move_phrase = spoken_move(san)
         duplicate_check = (
