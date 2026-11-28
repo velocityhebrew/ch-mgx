@@ -62,6 +62,14 @@ MOMENT_CONFIG = {
         "reveal_prefix": "The trap is",
         "reveal_tail": "strikes early.",
     },
+    "blunder": {
+        "hook": "CAN YOU SPOT THE BLUNDER?",
+        "hook_spoken": "Can you spot the blunder?",
+        "title": "Can You Spot the Blunder?",
+        "cta": "FULL GAME ON CHESS MAGIX",
+        "reveal_prefix": "The blunder is",
+        "reveal_tail": "walks into it.",
+    },
 }
 
 
@@ -291,20 +299,49 @@ def _find_opening_ply(moves, climax_ply, finish_ply):
     return best[1] if best else None
 
 
+def _find_blunder_ply(analysis, exclude_plies):
+    """Pick a real Stockfish blunder that is not the climax/finish/opening."""
+    if not analysis:
+        return None
+    best = None
+    for ply, (loss, note) in enumerate(
+        zip(analysis.get("losses", []), analysis.get("annotations", [])), 1
+    ):
+        if note != "??":
+            continue
+        if any(abs(ply - other) < 6 for other in exclude_plies):
+            continue
+        if best is None or loss > best[0]:
+            best = (loss, ply)
+    return best[1] if best else None
+
+
 def _moment_plan(game_info, moves):
     climax_ply = int(game_info.get("climax_ply") or len(moves))
     climax_ply = max(1, min(climax_ply, len(moves)))
-    plan = [("climax", climax_ply)]
     finish_ply = len(moves)
-    if finish_ply != climax_ply:
-        plan.append(("finish", finish_ply))
+    plan = [("climax", climax_ply)]
+
     opening_ply = _find_opening_ply(moves, climax_ply, finish_ply)
     if opening_ply:
         plan.append(("opening", opening_ply))
+
+    exclude = {climax_ply, finish_ply}
+    if opening_ply:
+        exclude.add(opening_ply)
+    blunder_ply = _find_blunder_ply(game_info.get("stockfish_analysis"), exclude)
+    if blunder_ply:
+        plan.append(("blunder", blunder_ply))
+
+    # The finish Short is a fallback only: the data showed it is the weakest hook.
+    if len(plan) < 2 and finish_ply != climax_ply:
+        plan.append(("finish", finish_ply))
     return plan[:3]
 
 
 def _badge_for(moment, game_info, san, captured):
+    if moment == "blunder":
+        return "!! THE BLUNDER"
     if moment == "climax":
         return game_info.get("climax_badge", "!! TACTICAL BLOW")
     if "#" in san:
@@ -387,19 +424,19 @@ async def generate_short(game_info, moment="climax", custom_ply=None, suffix=Non
     player_clean = white_clean if player == "White" else black_clean
 
     hook_text = f"{config['hook_spoken']} {white_clean} versus {black_clean}."
-    if moment == "climax":
+    move_phrase = spoken_move(san)
+    if moment in ("climax", "blunder"):
         if "BLUNDER" in str(badge).upper():
             reveal_text = (
-                f"The blunder is {spoken_move(san)}. {player_clean} walks into it, "
+                f"The blunder is {move_phrase}. {player_clean} walks into it, "
                 f"and the evaluation swings to {spoken_eval(eval_score)}."
             )
         else:
             reveal_text = (
-                f"The move is {spoken_move(san)}. {badge_spoken}. "
+                f"The move is {move_phrase}. {badge_spoken}. "
                 f"{player_clean} finds it, and the evaluation jumps to {spoken_eval(eval_score)}."
             )
     else:
-        move_phrase = spoken_move(san)
         duplicate_check = (
             badge_spoken and (
                 badge_spoken in move_phrase

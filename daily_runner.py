@@ -189,7 +189,12 @@ FULL PGN & MOVES
                     datetime.datetime.now(datetime.timezone.utc)
                     + datetime.timedelta(hours=offsets[i])
                 ).strftime("%Y-%m-%dT%H:%M:%SZ")
-                short_desc = f"{info['description']}\n\nFull game: {long_url}"
+                short_desc = (
+                    f"#Shorts\n"
+                    f"Full game: {long_url}\n\n"
+                    f"{info['hook']}\n\n"
+                    f"#Chess #Grandmaster #ChessMagix"
+                )
                 results[key] = upload_to_youtube(
                     video_path=info["path"],
                     thumbnail_path=None,

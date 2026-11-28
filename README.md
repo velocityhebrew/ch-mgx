@@ -38,12 +38,16 @@ Each run produces up to four YouTube uploads:
 
 1. the full 1080p long-form broadcast (public immediately)
 2. the **climax** Short — “Can you find the winning move?”
-3. the **finish** Short — “How did this game end?”
-4. the **opening trap** Short — “Can you spot the opening trap?”
+3. the **opening trap** Short — “Can you spot the opening trap?”
+4. the **blunder** Short — “Can you spot the blunder?” (Stockfish-selected)
+
+The **finish** Short — “How did this game end?” — is now a fallback only,
+used when a game has no clean opening trap or separate blunder. The data
+showed it was the weakest hook.
 
 The Shorts are vertical 9:16, about 16–25 seconds each, and are scheduled
-about 1, 3, and 5 hours after the long video. Each one links to the full game
-in its description.
+about 1, 3, and 5 hours after the long video. Each one puts the full-game
+link near the top of its description.
 
 Outputs in `recordings/`:
 
@@ -51,7 +55,8 @@ Outputs in `recordings/`:
 - `thumbnail.png` — YouTube thumbnail
 - `chess_subtitles.srt` — captions
 - `chapters.json` — chapter timestamps used in the description
-- `short_climax.mp4` / `short_finish.mp4` / `short_opening.mp4` — vertical Shorts
+- `short_climax.mp4` / `short_opening.mp4` / `short_blunder.mp4` — vertical Shorts
+- `short_finish.mp4` — fallback Short when no opening/blunder moment exists
 - `short_*_thumbnail.png` — Short cover frames
 - `short_*.srt` — Short captions
 
